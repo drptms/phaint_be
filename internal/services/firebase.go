@@ -2,33 +2,46 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"phaint/config"
 
-	firebase "firebase.google.com/go/v4"
-	"firebase.google.com/go/v4/db"
+	"cloud.google.com/go/firestore"
+	firebase "firebase.google.com/go"
 	"google.golang.org/api/option"
 )
 
 type FireDB struct {
-	*db.Client
+	client *firestore.Client
 }
 
 var fireDb FireDB
 
 func (db *FireDB) Connect() error {
 	context := context.Background()
-	option := option.WithCredentialsFile(config.FirebaseCredentialsPath())
-	config := &firebase.Config{DatabaseURL: config.FirebaseDBUrl()}
-	app, err := firebase.NewApp(context, config, option)
+	options := option.WithCredentialsFile(config.FirebaseCredentialsPath())
+	config := &firebase.Config{
+		ProjectID:   "phaint-ae2f2",
+		DatabaseURL: config.FirebaseDBUrl(),
+	}
+
+	app, err := firebase.NewApp(context, config, options)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
-	client, err := app.Database(context)
+
+	client, err := app.Firestore(context)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
-	db.Client = client
+
+	db.client = client
 	return nil
+}
+
+func (db *FireDB) GetClient() *firestore.Client {
+	return db.client
 }
 
 func FirebaseDb() *FireDB {

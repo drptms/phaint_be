@@ -19,7 +19,6 @@ type Config struct {
 var config Config
 
 func loadConfig() *Config {
-	// find home directory
 	home, err := os.Getwd()
 	if err != nil {
 		log.Fatalf("Error finding home directory: %v", err)

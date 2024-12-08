@@ -2,7 +2,9 @@ package main
 
 import (
 	"log"
+	auth "phaint/internal/handlers"
 	"phaint/internal/services"
+	crypto "phaint/internal/utils"
 )
 
 func main() {
@@ -10,5 +12,10 @@ func main() {
 	if err != nil {
 		log.Println(err)
 	}
-	log.Println("After!")
+	err = crypto.GenerateRSAKeys()
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println("Now trying to add a user!")
+	auth.RegisterUser("nick", "n@gmail.com", "nick")
 }
