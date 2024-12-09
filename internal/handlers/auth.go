@@ -2,35 +2,51 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
 	"phaint/internal/services"
 	crypto "phaint/internal/utils"
 	"phaint/models"
 )
 
-func RegisterUser(username string, mail string, password string) (string, error) {
-	cryptedPassword, err := crypto.Encrypt(username)
-	if err != nil {
-		fmt.Println(err)
-	}
-	user, err := models.NewUser(username, mail, cryptedPassword)
-	if err != nil {
-		fmt.Println(err)
-	}
+type UserHandler struct{}
 
+func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	var user models.User
+	err := decoder.Decode(&user)
+	if err != nil {
+		fmt.Println(err)
+	}
+	cryptedPassword, err := crypto.Encrypt(user.Password)
+	if err != nil {
+		log.Println(err)
+	}
 	client := services.FirebaseDb().GetClient()
 	ref := client.Collection("users").NewDoc()
-	result, err := ref.Set(context.Background(), map[string]interface{}{
+	_, err = ref.Set(context.Background(), map[string]interface{}{
 		"username": user.Username,
 		"mail":     user.Mail,
-		"password": user.Password,
+		"password": cryptedPassword,
 	})
 	user.Id = ref.ID
 	if err != nil {
-		fmt.Println(err)
-		return "", err
+		w.WriteHeader(http.StatusConflict)
 	}
+	w.WriteHeader(200)
+	w.Write([]byte(ref.ID))
+}
 
-	fmt.Printf("Result = %v\n", result)
-	return user.Id, nil
+func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("In ServeHTTP")
+	switch {
+	case r.Method == http.MethodPost:
+		h.RegisterUser(w, r)
+		return
+	case r.Method == http.MethodGet:
+		log.Println("In the GET")
+		return
+	}
 }
