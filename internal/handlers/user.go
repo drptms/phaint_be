@@ -36,7 +36,10 @@ func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 	}
 	w.WriteHeader(200)
-	w.Write([]byte(ref.ID))
+	_, err = w.Write([]byte(ref.ID))
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

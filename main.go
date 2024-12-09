@@ -23,5 +23,8 @@ func main() {
 	mux.Handle("/users/register", &user.UserHandler{})
 
 	// Run the server
-	http.ListenAndServe(":8080", mux)
+	err = http.ListenAndServe(":8080", mux)
+	if err != nil {
+		log.Panic(err)
+	}
 }
