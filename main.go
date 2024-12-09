@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
-	auth "phaint/internal/handlers"
+	user "phaint/internal/handlers"
 	"phaint/internal/services"
 	crypto "phaint/internal/utils"
 )
@@ -20,7 +20,7 @@ func main() {
 	log.Println("Creating the server on port 8080")
 	mux := http.NewServeMux()
 	// adding all the handlers
-	mux.Handle("/users/register", &auth.UserHandler{})
+	mux.Handle("/users/register", &user.UserHandler{})
 
 	// Run the server
 	http.ListenAndServe(":8080", mux)

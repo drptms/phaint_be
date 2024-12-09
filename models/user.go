@@ -7,7 +7,7 @@ type User struct {
 	Password string
 }
 
-func NewUser(username string, mail string, password string) (User, error) {
+func NewUser(username, mail, password string) (User, error) {
 	user := User{
 		Username: username,
 		Mail:     mail,
