@@ -11,6 +11,7 @@ import (
 )
 
 type FireDB struct {
+	app    *firebase.App
 	client *firestore.Client
 }
 
@@ -29,6 +30,7 @@ func (db *FireDB) Connect() error {
 		fmt.Println(err)
 		return err
 	}
+	db.app = app
 
 	client, err := app.Firestore(context)
 	if err != nil {
@@ -42,6 +44,10 @@ func (db *FireDB) Connect() error {
 
 func (db *FireDB) GetClient() *firestore.Client {
 	return db.client
+}
+
+func (db *FireDB) GetApp() *firebase.App {
+	return db.app
 }
 
 func FirebaseDb() *FireDB {

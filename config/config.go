@@ -10,6 +10,7 @@ import (
 type FirebaseConfig struct {
 	DatabaseURL     string `yaml:"database_url"`
 	CredentialsFile string `yaml:"credential_path"`
+	WebApiKey       string `yaml:"web_api_key"`
 }
 
 type Config struct {
@@ -54,4 +55,9 @@ func FirebaseCredentialsPath() string {
 		log.Fatalf("Firebase credentials file not found at %s", location)
 	}
 	return location
+}
+
+func FirebaseWebAPIKey() string {
+	loadConfig()
+	return config.Firebase.WebApiKey
 }

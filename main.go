@@ -3,9 +3,9 @@ package main
 import (
 	"log"
 	"net/http"
-	user "phaint/internal/handlers"
-	"phaint/internal/services"
-	crypto "phaint/internal/utils"
+	user "phaint/handlers"
+	"phaint/services"
+	crypto "phaint/utils"
 )
 
 func main() {
@@ -21,6 +21,7 @@ func main() {
 	mux := http.NewServeMux()
 	// adding all the handlers
 	mux.Handle("/users/register", &user.UserHandler{})
+	mux.Handle("/users/login", &user.UserHandler{})
 
 	// Run the server
 	err = http.ListenAndServe(":8080", mux)
