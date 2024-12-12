@@ -19,6 +19,7 @@ type Config struct {
 
 var config Config
 
+// Load the configuration variables from the secrets
 func loadConfig() *Config {
 	home, err := os.Getwd()
 	if err != nil {
@@ -39,11 +40,13 @@ func loadConfig() *Config {
 	return &config
 }
 
+// Return the Url of the Firebase database
 func FirebaseDBUrl() string {
 	loadConfig()
 	return config.Firebase.DatabaseURL
 }
 
+// Return the path of the file containing the firebase credentials
 func FirebaseCredentialsPath() string {
 	loadConfig()
 	home, err := os.Getwd()
@@ -57,6 +60,7 @@ func FirebaseCredentialsPath() string {
 	return location
 }
 
+// Return the Firebase Web API key, useful for specific post request
 func FirebaseWebAPIKey() string {
 	loadConfig()
 	return config.Firebase.WebApiKey

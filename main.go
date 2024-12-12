@@ -3,9 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
-	user "phaint/handlers"
-	"phaint/services"
-	crypto "phaint/utils"
+	user "phaint/internal/handlers"
+	"phaint/internal/services"
 )
 
 func main() {
@@ -13,7 +12,6 @@ func main() {
 	if err != nil {
 		log.Println(err)
 	}
-	err = crypto.GenerateRSAKeys()
 	if err != nil {
 		log.Println(err)
 	}

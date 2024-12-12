@@ -17,6 +17,7 @@ type FireDB struct {
 
 var fireDb FireDB
 
+// Connection method to the Firebase App
 func (db *FireDB) Connect() error {
 	context := context.Background()
 	options := option.WithCredentialsFile(config.FirebaseCredentialsPath())

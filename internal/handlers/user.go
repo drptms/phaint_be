@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"phaint/internal/services"
+	"phaint/internal/utils"
 	"phaint/models"
-	"phaint/services"
-	"phaint/utils"
 )
 
 type UserHandler struct{}
 
+// Create a new user on Firebase Authentication system from an user passed in the http request body
 func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	app := services.FirebaseDb().GetApp()
 	user, err := models.NewFirebaseAuthUser(r)
@@ -29,6 +30,7 @@ func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Utente creato: %v\n", userRecord.UID)
 }
 
+// Authenticate a user passed in the http request body
 func (h *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	user, err := models.NewUserFromRequest(r)
 	if err != nil {

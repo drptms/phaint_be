@@ -11,6 +11,7 @@ import (
 
 const verifyPasswordURL = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPassword?key=%s"
 
+// function to make a post request on firebase web API for various stuff
 func postRequest(url string, req []byte) ([]byte, error) {
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(req))
 	if err != nil {
@@ -24,6 +25,8 @@ func postRequest(url string, req []byte) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
+// Util function to sing in with email and password (not originaly supported from firebase)
+// return the token of the user
 func SignInWithPassword(email, password string) (string, error) {
 	req, err := json.Marshal(map[string]interface{}{
 		"email":             email,
