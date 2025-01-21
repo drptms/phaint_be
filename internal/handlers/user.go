@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -25,9 +26,9 @@ func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	}
 	userRecord, err := authx.CreateUser(context.Background(), user)
 	if err != nil {
-		log.Fatalf("Errore durante la creazione dell'utente: %v\n", err)
+		log.Fatalf("Error during user craetion : %v\n", err)
 	}
-	fmt.Printf("Utente creato: %v\n", userRecord.UID)
+	fmt.Fprintf(w, "%s", "User created with UID : "+userRecord.UID)
 }
 
 // Authenticate a user passed in the http request body
@@ -41,16 +42,19 @@ func (h *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err)
 	}
+	response := map[string]string{"UserToken": token}
 
-	fmt.Printf("Utente loggato: %v\n", token)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
-	case r.Method == http.MethodPost:
+	case r.Method == http.MethodPost && r.URL.Path == "/users/register":
 		h.RegisterUser(w, r)
 		return
-	case r.Method == http.MethodGet:
+	case r.Method == http.MethodPost && r.URL.Path == "/users/login":
 		h.LoginUser(w, r)
 		return
 	}
