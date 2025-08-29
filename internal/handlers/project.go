@@ -48,13 +48,34 @@ func (p *ProjectHandler) getProjects(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(arr)
 }
 
+func (p *ProjectHandler) addProject(w http.ResponseWriter, r *http.Request) {
+	client := services.FirebaseDb().GetClient()
+	ctx := context.Background()
+
+	project, err := models.GetProjectFromRequest(r)
+	if err != nil {
+		log.Println(err)
+	}
+
+	_, _, err = client.Collection("projects").Add(ctx, map[string]interface{}{
+		"UID": project.Uid,
+		"PID": project.Pid,
+	})
+	if err != nil {
+		log.Println(err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+}
+
 func (p *ProjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == "/projects/get":
 		p.getProjects(w, r)
 		return
-	case r.Method == http.MethodPost && r.URL.Path == "projects/add":
-		log.Println("Add ph")
+	case r.Method == http.MethodPost && r.URL.Path == "/projects/add":
+		p.addProject(w, r)
 		return
 	}
 }

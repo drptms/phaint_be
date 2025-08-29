@@ -10,6 +10,16 @@ type Project struct {
 	Pid string
 }
 
+func GetProjectFromRequest(r *http.Request) (Project, error) {
+	decoder := json.NewDecoder(r.Body)
+	var project Project
+	err := decoder.Decode(&project)
+	if err != nil {
+		return Project{}, err
+	}
+	return project, nil
+}
+
 func GetUidFromRequest(r *http.Request) (string, error) {
 	type UidStruct struct {
 		Uid string
