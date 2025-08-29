@@ -24,7 +24,7 @@ func NewUser(uid, username, mail, password string) (User, error) {
 	return user, nil
 }
 
-// Create a new user from an http reqeust
+// NewUserFromRequest Create a new user from an http request
 func NewUserFromRequest(r *http.Request) (User, error) {
 	decoder := json.NewDecoder(r.Body)
 	var user User
@@ -35,7 +35,7 @@ func NewUserFromRequest(r *http.Request) (User, error) {
 	return user, nil
 }
 
-// Create a new auth.UserToCreate from an http request
+// NewFirebaseAuthUser Create a new auth.UserToCreate from an http request
 func NewFirebaseAuthUser(r *http.Request) (*auth.UserToCreate, error) {
 	user := auth.UserToCreate{}
 	httpUser, err := NewUserFromRequest(r)

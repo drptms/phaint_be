@@ -40,13 +40,13 @@ func loadConfig() *Config {
 	return &config
 }
 
-// Return the Url of the Firebase database
+// FirebaseDBUrl Return the Url of the Firebase database
 func FirebaseDBUrl() string {
 	loadConfig()
 	return config.Firebase.DatabaseURL
 }
 
-// Return the path of the file containing the firebase credentials
+// FirebaseCredentialsPath Return the path of the file containing the firebase credentials
 func FirebaseCredentialsPath() string {
 	loadConfig()
 	home, err := os.Getwd()
@@ -60,7 +60,7 @@ func FirebaseCredentialsPath() string {
 	return location
 }
 
-// Return the Firebase Web API key, useful for specific post request
+// FirebaseWebAPIKey Return the Firebase Web API key, useful for specific post request
 func FirebaseWebAPIKey() string {
 	loadConfig()
 	return config.Firebase.WebApiKey

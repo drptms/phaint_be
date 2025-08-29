@@ -13,7 +13,7 @@ import (
 
 type UserHandler struct{}
 
-// Create a new user on Firebase Authentication system from an user passed in the http request body
+// RegisterUser Create a new user on Firebase Authentication system from an user passed in the http request body
 func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	app := services.FirebaseDb().GetApp()
 	user, err := models.NewFirebaseAuthUser(r)
@@ -24,14 +24,14 @@ func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	userRecord, err := authx.CreateUser(context.Background(), user)
+	_, err = authx.CreateUser(context.Background(), user)
 	if err != nil {
 		log.Fatalf("Error during user craetion : %v\n", err)
 	}
-	fmt.Fprintf(w, "%s", "User created with UID : "+userRecord.UID)
+	h.LoginUser(w, r)
 }
 
-// Authenticate a user passed in the http request body
+// LoginUser Authenticate a user passed in the http request body
 func (h *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	user, err := models.NewUserFromRequest(r)
 	if err != nil {
@@ -45,8 +45,8 @@ func (h *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	response := map[string]string{"UserToken": token}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
