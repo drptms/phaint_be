@@ -25,7 +25,7 @@ func postRequest(url string, req []byte) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-// Util function to sing in with email and password (not originaly supported from firebase)
+// SignInWithPassword Util function to sing in with email and password (not originally supported from firebase)
 // return the token of the user
 func SignInWithPassword(email, password string) (string, error) {
 	req, err := json.Marshal(map[string]interface{}{
