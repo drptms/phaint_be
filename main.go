@@ -23,6 +23,9 @@ func main() {
 	mux.Handle("/projects/add", &handlers.ProjectHandler{})
 	mux.Handle("/projects/get", &handlers.ProjectHandler{})
 
+	// Add WebSocket handler
+	mux.Handle("/connect", &handlers.WebSocketHandler{})
+
 	// Run the server
 	err = http.ListenAndServe(":8080", mux)
 	if err != nil {
