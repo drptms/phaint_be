@@ -96,20 +96,17 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if hub.users[userID] == nil {
-
-		client := &Client{
-			hub:    hub,
-			conn:   conn,
-			send:   make(chan []byte, 256),
-			userID: userID,
-		}
-
-		client.hub.register <- client
-
-		go client.writePump()
-		go client.readPump()
+	client := &Client{
+		hub:    hub,
+		conn:   conn,
+		send:   make(chan []byte, 256),
+		userID: userID,
 	}
+
+	client.hub.register <- client
+
+	go client.writePump()
+	go client.readPump()
 }
 
 func getOrCreateHub(projectID string) *Hub {
@@ -270,7 +267,7 @@ func (c *Client) readPump() {
 }
 
 func (c *Client) writePump() {
-	ticker := time.NewTicker(54 * time.Second)
+	ticker := time.NewTicker(3 * time.Second)
 	defer func() {
 		ticker.Stop()
 		c.conn.Close()
