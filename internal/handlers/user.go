@@ -101,5 +101,7 @@ func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodPost && r.URL.Path == "/users/login":
 		h.LoginUser(w, r)
 		return
+	default:
+		http.NotFound(w, r)
 	}
 }

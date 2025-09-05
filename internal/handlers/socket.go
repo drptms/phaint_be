@@ -157,7 +157,7 @@ func getOrCreateHub(projectID string) *Hub {
 	if hub, exists := projectHubs[projectID]; exists {
 		return hub
 	}
-	
+
 	hub := &Hub{
 		broadcast:  make(chan []byte, 256),
 		register:   make(chan *Client),
@@ -204,7 +204,7 @@ func (h *Hub) registerClient(client *Client) {
 		Color:    fmt.Sprintf("#%06x", time.Now().UnixNano()%0xFFFFFF),
 		LastSeen: time.Now(),
 	}
-
+	
 	log.Printf("Client %s connected to project %s. Total clients: %d", client.userID, h.projectID, len(h.clients))
 
 	// Send current users state
@@ -232,7 +232,6 @@ func (h *Hub) unregisterClient(client *Client) {
 func (h *Hub) broadcastMessage(message []byte) {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
-
 	var msg Message
 	if err := json.Unmarshal(message, &msg); err == nil {
 		switch msg.Type {
@@ -242,6 +241,7 @@ func (h *Hub) broadcastMessage(message []byte) {
 			h.handleCursorMove(msg)
 		}
 	}
+	log.Printf("Broadcasting message to %d clients", len(h.clients))
 
 	for client := range h.clients {
 		select {
@@ -255,10 +255,35 @@ func (h *Hub) broadcastMessage(message []byte) {
 }
 
 func (h *Hub) handleDrawingOperation(msg Message) {
-	/*if opData, ok := msg.Data.(map[string]interface{}); ok {
-		op := parseDrawingOperation(opData)
-		op.ProjectID = h.projectID
-	}*/
+
+	switch data := msg.Data.(type) {
+    case map[string]interface{}:
+        h.processSingleCanvas(data)
+    case []interface{}:
+        for _, item := range data {
+            if canvasMap, ok := item.(map[string]interface{}); ok {
+                h.processSingleCanvas(canvasMap)
+            } else {
+                log.Printf("handleDrawingOperation: array item is not map: %T", item)
+            }
+        }
+    default:
+        log.Printf("handleDrawingOperation: unexpected data type: %T", data)
+    }
+}
+
+func (h *Hub) processSingleCanvas(dataMap map[string]interface{}) {
+    h.workBoard.AddOrUpdateCanvas(services.Canvas{
+        ID:         getString(dataMap, "id"),
+        VectorData: services.VectorData{
+            Width:          getFloat64(dataMap, "width"),
+            Height:         getFloat64(dataMap, "height"),
+            Elements:       []services.VectorElement{},
+            BackgroundFill: getString(dataMap, "backgroundFill"),
+            Timestamp:      getString(dataMap, "timestamp"),
+            Version:        getString(dataMap, "version"),
+        },
+    })
 }
 
 func (h *Hub) handleCursorMove(msg Message) {
@@ -286,8 +311,6 @@ func (c *Client) readPump() {
 		if err != nil {
 			break
 		}
-
-		log.Println(string(message[:]))
 
 		c.hub.broadcast <- message
 	}
