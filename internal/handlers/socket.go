@@ -253,14 +253,7 @@ func (c *Client) readPump() {
 			break
 		}
 
-		var msg Message
-		if err := json.Unmarshal(message, &msg); err == nil {
-			msg.UserID = c.userID
-			msg.ProjectID = c.hub.projectID
-			if newMessage, err := json.Marshal(msg); err == nil {
-				message = newMessage
-			}
-		}
+		log.Println(string(message[:]))
 
 		c.hub.broadcast <- message
 	}
