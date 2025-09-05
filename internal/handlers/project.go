@@ -58,8 +58,10 @@ func (p *ProjectHandler) addProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, _, err = client.Collection("projects").Add(ctx, map[string]interface{}{
-		"UID": project.Uid,
-		"PID": project.Pid,
+		"UID":          project.Uid,
+		"PID":          project.Pid,
+		"ProjectName":  project.ProjectName,
+		"CreationDate": project.CreationDate,
 	})
 	if err != nil {
 		log.Println(err)
@@ -67,14 +69,15 @@ func (p *ProjectHandler) addProject(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(project.Pid)
 }
 
 func (p *ProjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
-	case r.Method == http.MethodGet && r.URL.Path == "/projects/get":
+	case r.Method == http.MethodGet:
 		p.getProjects(w, r)
 		return
-	case r.Method == http.MethodPost && r.URL.Path == "/projects/add":
+	case r.Method == http.MethodPost:
 		p.addProject(w, r)
 		return
 	}
