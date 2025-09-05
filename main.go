@@ -22,6 +22,8 @@ func main() {
 	mux.Handle("/users/register", &handlers.UserHandler{})
 	mux.Handle("/projects/add", &handlers.ProjectHandler{})
 	mux.Handle("/projects/get", &handlers.ProjectHandler{})
+	// WorkBoard handler
+	mux.Handle("/workboard", &handlers.WorkBoardHandler{})
 
 	// Add WebSocket handler
 	mux.Handle("/connect", &handlers.WebSocketHandler{})

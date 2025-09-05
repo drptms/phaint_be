@@ -1,10 +1,12 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"phaint/internal/services"
 	"sync"
 	"time"
 
@@ -18,10 +20,10 @@ type Hub struct {
 	broadcast  chan []byte
 	register   chan *Client
 	unregister chan *Client
-	operations []DrawingOperation
 	users      map[string]*UserPresence
 	mutex      sync.RWMutex
 	projectID  string
+	workBoard  services.CanvasService
 }
 
 type Client struct {
@@ -29,17 +31,6 @@ type Client struct {
 	conn   *websocket.Conn
 	send   chan []byte
 	userID string
-}
-
-type DrawingOperation struct {
-	Type      string  `json:"type"`
-	Tool      string  `json:"tool"`
-	Color     string  `json:"color"`
-	Points    []Point `json:"points"`
-	Timestamp int64   `json:"timestamp"`
-	UserID    string  `json:"userId"`
-	ID        string  `json:"id"`
-	ProjectID string  `json:"projectId"`
 }
 
 type Point struct {
@@ -109,6 +100,56 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go client.readPump()
 }
 
+func initializeHubCanvasData(hub *Hub) error {
+    ctx := context.Background()
+    client := services.FirebaseDb().GetClient()
+
+    // Firestore collection and document naming assumed: collection "projects", document projectID
+    docSnap, err := client.Collection("projects").Doc(hub.projectID).Get(ctx)
+    if err != nil {
+        return err
+    }
+
+    // Assuming your Firestore doc has a field "CanvasesData" which is a slice or map of canvases
+    var rawData map[string]interface{}
+    if err := docSnap.DataTo(&rawData); err != nil {
+        return err
+    }
+
+    canvasesData, ok := rawData["CanvasesData"]
+    if !ok {
+        return fmt.Errorf("CanvasesData field not found")
+    }
+
+    // Parse canvasesData (likely a slice of map[string]interface{} or map[string]interface{})
+    // into your Canvas structs and add them to the CanvasService inside hub.workBoard
+
+    // Example assuming canvasesData is a slice of maps (adjust according to your exact Firestore data shape)
+    if canvasSlice, ok := canvasesData.([]interface{}); ok {
+        for _, c := range canvasSlice {
+            canvasMap, ok := c.(map[string]interface{})
+            if !ok {
+                continue
+            }
+            // Deserialize each canvasMap into your Canvas struct
+            var canvas services.Canvas
+            // Use mapstructure or manual unmarshaling or json marshal-unmarshal trick:
+            // Convert canvasMap back to JSON bytes and then unmarshal to Canvas struct
+            b, err := json.Marshal(canvasMap)
+            if err != nil {
+                continue
+            }
+            if err := json.Unmarshal(b, &canvas); err != nil {
+                continue
+            }
+            // Add canvas to the service
+            hub.workBoard.AddOrUpdateCanvas(canvas)
+        }
+    }
+
+    return nil
+}
+
 func getOrCreateHub(projectID string) *Hub {
 	hubsMutex.Lock()
 	defer hubsMutex.Unlock()
@@ -116,16 +157,23 @@ func getOrCreateHub(projectID string) *Hub {
 	if hub, exists := projectHubs[projectID]; exists {
 		return hub
 	}
-
+	
 	hub := &Hub{
 		broadcast:  make(chan []byte, 256),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]bool),
-		operations: make([]DrawingOperation, 0),
 		users:      make(map[string]*UserPresence),
 		projectID:  projectID,
+		workBoard:  *services.NewCanvasService(),
 	}
+
+	// Load canvas data from Firestore and initialize CanvasService
+    err := initializeHubCanvasData(hub)
+    if err != nil {
+        log.Printf("Error loading canvas data for project %s: %v", projectID, err)
+        // Optionally continue with empty canvas or handle error accordingly
+    }
 
 	projectHubs[projectID] = hub
 	go hub.run()
@@ -159,18 +207,6 @@ func (h *Hub) registerClient(client *Client) {
 
 	log.Printf("Client %s connected to project %s. Total clients: %d", client.userID, h.projectID, len(h.clients))
 
-	// Send current drawing operations
-	for _, op := range h.operations {
-		data, _ := json.Marshal(Message{Type: "operation", Data: op})
-		select {
-		case client.send <- data:
-		default:
-			close(client.send)
-			delete(h.clients, client)
-			return
-		}
-	}
-
 	// Send current users state
 	usersData, _ := json.Marshal(Message{Type: "users_state", Data: h.users})
 	select {
@@ -179,7 +215,6 @@ func (h *Hub) registerClient(client *Client) {
 		close(client.send)
 		delete(h.clients, client)
 	}
-
 }
 
 func (h *Hub) unregisterClient(client *Client) {
@@ -220,11 +255,10 @@ func (h *Hub) broadcastMessage(message []byte) {
 }
 
 func (h *Hub) handleDrawingOperation(msg Message) {
-	if opData, ok := msg.Data.(map[string]interface{}); ok {
+	/*if opData, ok := msg.Data.(map[string]interface{}); ok {
 		op := parseDrawingOperation(opData)
 		op.ProjectID = h.projectID
-		h.operations = append(h.operations, op)
-	}
+	}*/
 }
 
 func (h *Hub) handleCursorMove(msg Message) {
@@ -268,7 +302,7 @@ func (c *Client) writePump() {
 
 	for {
 		select {
-		case message, ok := <-c.send:
+		case message, ok := <- c.send:
 			_ = c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if !ok {
 				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
@@ -282,30 +316,6 @@ func (c *Client) writePump() {
 				return
 			}
 		}
-	}
-}
-
-func parseDrawingOperation(data map[string]interface{}) DrawingOperation {
-	points := make([]Point, 0)
-	if pointsData, ok := data["points"].([]interface{}); ok {
-		for _, p := range pointsData {
-			if pointMap, ok := p.(map[string]interface{}); ok {
-				points = append(points, Point{
-					X: getFloat64(pointMap, "x"),
-					Y: getFloat64(pointMap, "y"),
-				})
-			}
-		}
-	}
-
-	return DrawingOperation{
-		Type:      getString(data, "type"),
-		Tool:      getString(data, "tool"),
-		Color:     getString(data, "color"),
-		Points:    points,
-		Timestamp: getInt64(data, "timestamp"),
-		UserID:    getString(data, "userId"),
-		ID:        getString(data, "id"),
 	}
 }
 
