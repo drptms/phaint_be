@@ -1,4 +1,4 @@
-package auth
+package handlers
 
 import (
 	"context"
@@ -23,7 +23,7 @@ type Hub struct {
 	users      map[string]*UserPresence
 	mutex      sync.RWMutex
 	projectID  string
-	workBoard  services.CanvasService
+	workBoard  *services.CanvasService
 }
 
 type Client struct {
@@ -74,9 +74,7 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if userID == "" {
-		userID = generateUserID()
-	}
+	userID = generateUserID()
 
 	// Get or create hub for this project
 	hub := getOrCreateHub(projectID)
@@ -98,6 +96,14 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	go client.writePump()
 	go client.readPump()
+
+	currentWordboard := hub.getCurrentWorkboard()
+	data, err := json.Marshal(currentWordboard)
+	if err != nil {
+		log.Println("Error marshaling current workboard:", err)
+	} else {
+		client.send <- data
+	}
 }
 
 func initializeHubCanvasData(hub *Hub) error {
@@ -154,7 +160,7 @@ func getOrCreateHub(projectID string) *Hub {
 	hubsMutex.Lock()
 	defer hubsMutex.Unlock()
 
-	if hub, exists := projectHubs[projectID]; exists {
+	if hub, exists := projectHubs[projectID]; exists {	
 		return hub
 	}
 
@@ -165,7 +171,7 @@ func getOrCreateHub(projectID string) *Hub {
 		clients:    make(map[*Client]bool),
 		users:      make(map[string]*UserPresence),
 		projectID:  projectID,
-		workBoard:  *services.NewCanvasService(),
+		workBoard:  services.NewCanvasService(),
 	}
 
 	// Load canvas data from Firestore and initialize CanvasService
@@ -179,6 +185,13 @@ func getOrCreateHub(projectID string) *Hub {
 	go hub.run()
 
 	return hub
+}
+
+func (h *Hub) getCurrentWorkboard() map[string]interface{} {
+	return map[string]interface{}{
+		"type": "operation",
+		"data": h.workBoard.GetAllCanvases(),
+	}
 }
 
 func (h *Hub) run() {
@@ -203,10 +216,8 @@ func (h *Hub) registerClient(client *Client) {
 		UserID:   client.userID,
 		Color:    fmt.Sprintf("#%06x", time.Now().UnixNano()%0xFFFFFF),
 		LastSeen: time.Now(),
-	}
-	
+	}	
 	log.Printf("Client %s connected to project %s. Total clients: %d", client.userID, h.projectID, len(h.clients))
-
 	// Send current users state
 	usersData, _ := json.Marshal(Message{Type: "users_state", Data: h.users})
 	select {
@@ -239,6 +250,8 @@ func (h *Hub) broadcastMessage(message []byte) {
 			h.handleDrawingOperation(msg)
 		case "cursor_move":
 			h.handleCursorMove(msg)
+		default:
+			log.Printf("Unknown message type: %s", msg.Type)
 		}
 	}
 	log.Printf("Broadcasting message to %d clients", len(h.clients))
@@ -272,19 +285,94 @@ func (h *Hub) handleDrawingOperation(msg Message) {
     }
 }
 
+
+
 func (h *Hub) processSingleCanvas(dataMap map[string]interface{}) {
-    h.workBoard.AddOrUpdateCanvas(services.Canvas{
-        ID:         getString(dataMap, "id"),
-        VectorData: services.VectorData{
-            Width:          getFloat64(dataMap, "width"),
-            Height:         getFloat64(dataMap, "height"),
-            Elements:       []services.VectorElement{},
-            BackgroundFill: getString(dataMap, "backgroundFill"),
-            Timestamp:      getString(dataMap, "timestamp"),
-            Version:        getString(dataMap, "version"),
-        },
-    })
+    // Marshal entire dataMap back to JSON bytes
+    jsonData, err := json.Marshal(dataMap)
+    if err != nil {
+        log.Printf("Error marshaling dataMap: %v", err)
+        return
+    }
+
+    var canvas services.Canvas
+
+    // Unmarshal JSON bytes into Canvas struct
+    if err := json.Unmarshal(jsonData, &canvas); err != nil {
+        log.Printf("Error unmarshaling to Canvas: %v", err)
+        return
+    }
+
+    // Since Elements is []VectorElement (interface slice), unmarshal won't fill it properly by default.
+    // We need to handle Elements specially:
+    canvas.VectorData.Elements = parseVectorElementsFromRaw(dataMap)
+
+    h.workBoard.AddOrUpdateCanvas(canvas)
 }
+
+// Special parser for VectorElements with dynamic type handling
+func parseVectorElementsFromRaw(dataMap map[string]interface{}) []services.VectorElement {
+    vectorData := getMapStringInterface(dataMap, "vectorData")
+    if vectorData == nil {
+        return nil
+    }
+
+    elementsRaw, ok := vectorData["elements"]
+    if !ok {
+        return nil
+    }
+
+    elements := []services.VectorElement{}
+    rawSlice, ok := elementsRaw.([]interface{})
+    if !ok {
+        return nil
+    }
+
+    for _, elem := range rawSlice {
+        elemMap, ok := elem.(map[string]interface{})
+        if !ok {
+            continue
+        }
+
+        t := getString(elemMap, "type")
+        jsonData, err := json.Marshal(elemMap)
+        if err != nil {
+            continue
+        }
+
+        switch t {
+        case "path":
+            var path services.VectorPath
+            if err := json.Unmarshal(jsonData, &path); err == nil {
+                elements = append(elements, path)
+            }
+        case "rectangle":
+            var rect services.VectorRectangle
+            if err := json.Unmarshal(jsonData, &rect); err == nil {
+                elements = append(elements, rect)
+            }
+        case "circle":
+            var circle services.VectorCircle
+            if err := json.Unmarshal(jsonData, &circle); err == nil {
+                elements = append(elements, circle)
+            }
+        default:
+			log.Printf("Unknown vector element type: %s", t)
+            // Optional: handle unknown types here or skip
+        }
+    }
+    return elements
+}
+
+func getMapStringInterface(m map[string]interface{}, key string) map[string]interface{} {
+	if v, ok := m[key]; ok {
+		if subMap, ok := v.(map[string]interface{}); ok {
+			return subMap
+		}
+	}
+	return nil
+}
+
 
 func (h *Hub) handleCursorMove(msg Message) {
 	if cursorData, ok := msg.Data.(map[string]interface{}); ok {

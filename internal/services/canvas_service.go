@@ -70,6 +70,16 @@ type CanvasService struct {
 	mutex    sync.RWMutex
 }
 
+func (c *CanvasService) GetAllCanvases() []*Canvas {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	canvases := make([]*Canvas, 0, len(c.canvases))
+	for _, canvas := range c.canvases {
+		canvases = append(canvases, canvas)
+	}
+	return canvases
+}
+
 // Constructor
 func NewCanvasService() *CanvasService {
 	return &CanvasService{
