@@ -9,21 +9,21 @@ import (
 	"phaint/internal/services"
 	"sync"
 	"time"
-
 	"github.com/gorilla/websocket"
 )
 
 type WebSocketHandler struct{}
 
 type Hub struct {
-	clients    map[*Client]bool
-	broadcast  chan []byte
-	register   chan *Client
-	unregister chan *Client
-	users      map[string]*UserPresence
-	mutex      sync.RWMutex
-	projectID  string
-	workBoard  *services.CanvasService
+	clients    		map[*Client]bool
+	broadcast  		chan []byte
+	register   		chan *Client
+	unregister 		chan *Client
+	users      		map[string]*UserPresence
+	mutex      		sync.RWMutex
+	projectID  		string
+	workBoard  		*services.CanvasService
+	projectHandler 	*ProjectHandler
 }
 
 type Client struct {
@@ -79,6 +79,8 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Get or create hub for this project
 	hub := getOrCreateHub(projectID)
 
+	log.Print(hub.workBoard.GetAllCanvases())
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("WebSocket upgrade error:", err)
@@ -107,27 +109,29 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func initializeHubCanvasData(hub *Hub) error {
-    ctx := context.Background()
-    client := services.FirebaseDb().GetClient()
+	docRef, err := hub.projectHandler.getProjectByName(hub.projectID)
+	if err != nil {
+		return err
+	}
 
-    // Firestore collection and document naming assumed: collection "projects", document projectID
-    docSnap, err := client.Collection("projects").Doc(hub.projectID).Get(ctx)
-    if err != nil {
-        return err
-    }
+	// Get the document snapshot
+	docSnap, err := docRef.Get(context.Background())
+	if err != nil {
+		return err
+	}
 
-    // Assuming your Firestore doc has a field "CanvasesData" which is a slice or map of canvases
-    var rawData map[string]interface{}
-    if err := docSnap.DataTo(&rawData); err != nil {
-        return err
-    }
+	// Assuming your Firestore doc has a field "CanvasesData" which is a slice or map of canvases
+	var rawData map[string]interface{}
+	if err := docSnap.DataTo(&rawData); err != nil {
+		return err
+	}
 
-    canvasesData, ok := rawData["CanvasesData"]
-    if !ok {
-        return fmt.Errorf("CanvasesData field not found")
-    }
+	canvasesData, ok := rawData["CanvasesData"]
+	if !ok {
+		return fmt.Errorf("CanvasesData field not found")
+	}
 
-    // Parse canvasesData (likely a slice of map[string]interface{} or map[string]interface{})
+	// Parse canvasesData (likely a slice of map[string]interface{} or map[string]interface{})
     // into your Canvas structs and add them to the CanvasService inside hub.workBoard
 
     // Example assuming canvasesData is a slice of maps (adjust according to your exact Firestore data shape)
@@ -137,22 +141,11 @@ func initializeHubCanvasData(hub *Hub) error {
             if !ok {
                 continue
             }
-            // Deserialize each canvasMap into your Canvas struct
-            var canvas services.Canvas
-            // Use mapstructure or manual unmarshaling or json marshal-unmarshal trick:
-            // Convert canvasMap back to JSON bytes and then unmarshal to Canvas struct
-            b, err := json.Marshal(canvasMap)
-            if err != nil {
-                continue
-            }
-            if err := json.Unmarshal(b, &canvas); err != nil {
-                continue
-            }
             // Add canvas to the service
-            hub.workBoard.AddOrUpdateCanvas(canvas)
+			log.Print(canvasMap)
+            hub.processSingleCanvas(canvasMap)
         }
     }
-
     return nil
 }
 
@@ -172,6 +165,7 @@ func getOrCreateHub(projectID string) *Hub {
 		users:      make(map[string]*UserPresence),
 		projectID:  projectID,
 		workBoard:  services.NewCanvasService(),
+		projectHandler: &ProjectHandler{},
 	}
 
 	// Load canvas data from Firestore and initialize CanvasService
@@ -419,6 +413,7 @@ func (c *Client) writePump() {
 				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
+			c.hub.projectHandler.updateProjectCanvasesData(c.hub)
 			_ = c.conn.WriteMessage(websocket.TextMessage, message)
 
 		case <-ticker.C:

@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"phaint/internal/services"
 	"phaint/models"
+
+	"cloud.google.com/go/firestore"
 	"google.golang.org/api/iterator"
 )
 
@@ -66,6 +69,52 @@ func (p *ProjectHandler) addProject(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+}
+
+func (p *ProjectHandler) getProjectByName(name string) (*firestore.DocumentRef, error) {
+    ctx := context.Background()
+    client := services.FirebaseDb().GetClient()
+
+	// Query to find the document where ProjectName field matches name
+    query := client.Collection("projects").Where("ProjectName", "==", name).Limit(1)
+    docs, err := query.Documents(ctx).GetAll()
+    if err != nil {
+        log.Println("Error querying document by ProjectName:", err)
+        return nil, err
+    }
+    if len(docs) == 0 {
+        log.Println("No project found with ProjectName:", name)
+        return nil, fmt.Errorf("no project found with ProjectName: %s", name)
+    }
+
+    return docs[0].Ref, nil
+}
+
+func (p *ProjectHandler) updateProjectCanvasesData(hub *Hub) error {
+	ctx := context.Background()
+
+    docRef, err := p.getProjectByName(hub.projectID)
+    if err != nil {
+        return err
+    }
+
+    // Get all canvases from the CanvasService
+    canvases := hub.workBoard.GetAllCanvases()
+
+    // Update "CanvasesData" field with current canvases
+    _, err = docRef.Update(ctx, []firestore.Update{
+        {
+            Path:  "CanvasesData",
+            Value: canvases,
+        },
+    })
+
+    if err != nil {
+        log.Println("Failed to update CanvasesData:", err)
+        return err
+    }
+
+    return nil
 }
 
 func (p *ProjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
