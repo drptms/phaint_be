@@ -1,6 +1,8 @@
 package services
 
 import (
+	"encoding/json"
+	"log"
 	"sync"
 	"time"
 )
@@ -148,4 +150,75 @@ func (c *CanvasService) ListCanvasIDs() []string {
 // Helper for current timestamp string
 func GetCurrentTimestamp() string {
 	return time.Now().Format(time.RFC3339)
+}
+
+
+// Special parser for VectorElements with dynamic type handling
+func ParseVectorElementsFromRaw(dataMap map[string]interface{}) []VectorElement {
+    vectorData := getMapStringInterface(dataMap, "vectorData")
+    if vectorData == nil {
+        return nil
+    }
+
+    elementsRaw, ok := vectorData["elements"]
+    if !ok {
+        return nil
+    }
+
+    elements := []VectorElement{}
+    rawSlice, ok := elementsRaw.([]interface{})
+    if !ok {
+        return nil
+    }
+
+    for _, elem := range rawSlice {
+        elemMap, ok := elem.(map[string]interface{})
+        if !ok {
+            continue
+        }
+
+        t := getString(elemMap, "type")
+        jsonData, err := json.Marshal(elemMap)
+        if err != nil {
+            continue
+        }
+
+        switch t {
+        case "path":
+            var path VectorPath
+            if err := json.Unmarshal(jsonData, &path); err == nil {
+                elements = append(elements, path)
+            }
+        case "rectangle":
+            var rect VectorRectangle
+            if err := json.Unmarshal(jsonData, &rect); err == nil {
+                elements = append(elements, rect)
+            }
+        case "circle":
+            var circle VectorCircle
+            if err := json.Unmarshal(jsonData, &circle); err == nil {
+                elements = append(elements, circle)
+            }
+        default:
+			log.Printf("Unknown vector element type: %s", t)
+            // Optional: handle unknown types here or skip
+        }
+    }
+    return elements
+}
+
+func getMapStringInterface(m map[string]interface{}, key string) map[string]interface{} {
+	if v, ok := m[key]; ok {
+		if subMap, ok := v.(map[string]interface{}); ok {
+			return subMap
+		}
+	}
+	return nil
+}
+
+func getString(m map[string]interface{}, key string) string {
+	if val, ok := m[key].(string); ok {
+		return val
+	}
+	return ""
 }

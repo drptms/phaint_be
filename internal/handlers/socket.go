@@ -299,74 +299,10 @@ func (h *Hub) processSingleCanvas(dataMap map[string]interface{}) {
 
     // Since Elements is []VectorElement (interface slice), unmarshal won't fill it properly by default.
     // We need to handle Elements specially:
-    canvas.VectorData.Elements = parseVectorElementsFromRaw(dataMap)
+    canvas.VectorData.Elements = services.ParseVectorElementsFromRaw(dataMap)
 
     h.workBoard.AddOrUpdateCanvas(canvas)
 }
-
-// Special parser for VectorElements with dynamic type handling
-func parseVectorElementsFromRaw(dataMap map[string]interface{}) []services.VectorElement {
-    vectorData := getMapStringInterface(dataMap, "vectorData")
-    if vectorData == nil {
-        return nil
-    }
-
-    elementsRaw, ok := vectorData["elements"]
-    if !ok {
-        return nil
-    }
-
-    elements := []services.VectorElement{}
-    rawSlice, ok := elementsRaw.([]interface{})
-    if !ok {
-        return nil
-    }
-
-    for _, elem := range rawSlice {
-        elemMap, ok := elem.(map[string]interface{})
-        if !ok {
-            continue
-        }
-
-        t := getString(elemMap, "type")
-        jsonData, err := json.Marshal(elemMap)
-        if err != nil {
-            continue
-        }
-
-        switch t {
-        case "path":
-            var path services.VectorPath
-            if err := json.Unmarshal(jsonData, &path); err == nil {
-                elements = append(elements, path)
-            }
-        case "rectangle":
-            var rect services.VectorRectangle
-            if err := json.Unmarshal(jsonData, &rect); err == nil {
-                elements = append(elements, rect)
-            }
-        case "circle":
-            var circle services.VectorCircle
-            if err := json.Unmarshal(jsonData, &circle); err == nil {
-                elements = append(elements, circle)
-            }
-        default:
-			log.Printf("Unknown vector element type: %s", t)
-            // Optional: handle unknown types here or skip
-        }
-    }
-    return elements
-}
-
-func getMapStringInterface(m map[string]interface{}, key string) map[string]interface{} {
-	if v, ok := m[key]; ok {
-		if subMap, ok := v.(map[string]interface{}); ok {
-			return subMap
-		}
-	}
-	return nil
-}
-
 
 func (h *Hub) handleCursorMove(msg Message) {
 	if cursorData, ok := msg.Data.(map[string]interface{}); ok {
@@ -399,8 +335,9 @@ func (c *Client) readPump() {
 }
 
 func (c *Client) writePump() {
-	ticker := time.NewTicker(3 * time.Second)
+	ticker := time.NewTicker(4 * time.Second)
 	defer func() {
+		c.hub.projectHandler.updateProjectCanvasesData(c.hub)
 		ticker.Stop()
 		c.conn.Close()
 	}()
@@ -413,7 +350,6 @@ func (c *Client) writePump() {
 				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			c.hub.projectHandler.updateProjectCanvasesData(c.hub)
 			_ = c.conn.WriteMessage(websocket.TextMessage, message)
 
 		case <-ticker.C:
@@ -421,19 +357,13 @@ func (c *Client) writePump() {
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
+			c.hub.projectHandler.updateProjectCanvasesData(c.hub)
 		}
 	}
 }
 
 func generateUserID() string {
 	return fmt.Sprintf("user_%d", time.Now().UnixNano())
-}
-
-func getString(m map[string]interface{}, key string) string {
-	if val, ok := m[key].(string); ok {
-		return val
-	}
-	return ""
 }
 
 func getFloat64(m map[string]interface{}, key string) float64 {
