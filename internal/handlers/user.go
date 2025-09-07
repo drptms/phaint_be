@@ -1,4 +1,4 @@
-package auth
+package handlers
 
 import (
 	"bytes"
@@ -119,5 +119,7 @@ func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodPost && len(user.Username) == 0:
 		h.LoginUser(w, r, user)
 		return
+	default:
+		http.NotFound(w, r)
 	}
 }

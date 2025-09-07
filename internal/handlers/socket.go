@@ -1,27 +1,29 @@
-package auth
+package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"phaint/internal/services"
 	"sync"
 	"time"
-
 	"github.com/gorilla/websocket"
 )
 
 type WebSocketHandler struct{}
 
 type Hub struct {
-	clients    map[*Client]bool
-	broadcast  chan []byte
-	register   chan *Client
-	unregister chan *Client
-	operations []DrawingOperation
-	users      map[string]*UserPresence
-	mutex      sync.RWMutex
-	projectID  string
+	clients    		map[*Client]bool
+	broadcast  		chan []byte
+	register   		chan *Client
+	unregister 		chan *Client
+	users      		map[string]*UserPresence
+	mutex      		sync.RWMutex
+	projectID  		string
+	workBoard  		*services.CanvasService
+	projectHandler 	*ProjectHandler
 }
 
 type Client struct {
@@ -29,17 +31,6 @@ type Client struct {
 	conn   *websocket.Conn
 	send   chan []byte
 	userID string
-}
-
-type DrawingOperation struct {
-	Type      string  `json:"type"`
-	Tool      string  `json:"tool"`
-	Color     string  `json:"color"`
-	Points    []Point `json:"points"`
-	Timestamp int64   `json:"timestamp"`
-	UserID    string  `json:"userId"`
-	ID        string  `json:"id"`
-	ProjectID string  `json:"projectId"`
 }
 
 type Point struct {
@@ -83,12 +74,12 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if userID == "" {
-		userID = generateUserID()
-	}
+	userID = generateUserID()
 
 	// Get or create hub for this project
 	hub := getOrCreateHub(projectID)
+
+	log.Print(hub.workBoard.GetAllCanvases())
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -107,13 +98,62 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	go client.writePump()
 	go client.readPump()
+
+	currentWordboard := hub.getCurrentWorkboard()
+	data, err := json.Marshal(currentWordboard)
+	if err != nil {
+		log.Println("Error marshaling current workboard:", err)
+	} else {
+		client.send <- data
+	}
+}
+
+func initializeHubCanvasData(hub *Hub) error {
+	docRef, err := hub.projectHandler.getProjectByName(hub.projectID)
+	if err != nil {
+		return err
+	}
+
+	// Get the document snapshot
+	docSnap, err := docRef.Get(context.Background())
+	if err != nil {
+		return err
+	}
+
+	// Assuming your Firestore doc has a field "CanvasesData" which is a slice or map of canvases
+	var rawData map[string]interface{}
+	if err := docSnap.DataTo(&rawData); err != nil {
+		return err
+	}
+
+	canvasesData, ok := rawData["CanvasesData"]
+	if !ok {
+		return fmt.Errorf("CanvasesData field not found")
+	}
+
+	// Parse canvasesData (likely a slice of map[string]interface{} or map[string]interface{})
+    // into your Canvas structs and add them to the CanvasService inside hub.workBoard
+
+    // Example assuming canvasesData is a slice of maps (adjust according to your exact Firestore data shape)
+    if canvasSlice, ok := canvasesData.([]interface{}); ok {
+        for _, c := range canvasSlice {
+            canvasMap, ok := c.(map[string]interface{})
+            if !ok {
+                continue
+            }
+            // Add canvas to the service
+			log.Print(canvasMap)
+            hub.processSingleCanvas(canvasMap)
+        }
+    }
+    return nil
 }
 
 func getOrCreateHub(projectID string) *Hub {
 	hubsMutex.Lock()
 	defer hubsMutex.Unlock()
 
-	if hub, exists := projectHubs[projectID]; exists {
+	if hub, exists := projectHubs[projectID]; exists {	
 		return hub
 	}
 
@@ -122,15 +162,30 @@ func getOrCreateHub(projectID string) *Hub {
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]bool),
-		operations: make([]DrawingOperation, 0),
 		users:      make(map[string]*UserPresence),
 		projectID:  projectID,
+		workBoard:  services.NewCanvasService(),
+		projectHandler: &ProjectHandler{},
 	}
+
+	// Load canvas data from Firestore and initialize CanvasService
+    err := initializeHubCanvasData(hub)
+    if err != nil {
+        log.Printf("Error loading canvas data for project %s: %v", projectID, err)
+        // Optionally continue with empty canvas or handle error accordingly
+    }
 
 	projectHubs[projectID] = hub
 	go hub.run()
 
 	return hub
+}
+
+func (h *Hub) getCurrentWorkboard() map[string]interface{} {
+	return map[string]interface{}{
+		"type": "operation",
+		"data": h.workBoard.GetAllCanvases(),
+	}
 }
 
 func (h *Hub) run() {
@@ -155,22 +210,8 @@ func (h *Hub) registerClient(client *Client) {
 		UserID:   client.userID,
 		Color:    fmt.Sprintf("#%06x", time.Now().UnixNano()%0xFFFFFF),
 		LastSeen: time.Now(),
-	}
-
+	}	
 	log.Printf("Client %s connected to project %s. Total clients: %d", client.userID, h.projectID, len(h.clients))
-
-	// Send current drawing operations
-	for _, op := range h.operations {
-		data, _ := json.Marshal(Message{Type: "operation", Data: op})
-		select {
-		case client.send <- data:
-		default:
-			close(client.send)
-			delete(h.clients, client)
-			return
-		}
-	}
-
 	// Send current users state
 	usersData, _ := json.Marshal(Message{Type: "users_state", Data: h.users})
 	select {
@@ -179,7 +220,6 @@ func (h *Hub) registerClient(client *Client) {
 		close(client.send)
 		delete(h.clients, client)
 	}
-
 }
 
 func (h *Hub) unregisterClient(client *Client) {
@@ -197,7 +237,6 @@ func (h *Hub) unregisterClient(client *Client) {
 func (h *Hub) broadcastMessage(message []byte) {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
-
 	var msg Message
 	if err := json.Unmarshal(message, &msg); err == nil {
 		switch msg.Type {
@@ -205,8 +244,11 @@ func (h *Hub) broadcastMessage(message []byte) {
 			h.handleDrawingOperation(msg)
 		case "cursor_move":
 			h.handleCursorMove(msg)
+		default:
+			log.Printf("Unknown message type: %s", msg.Type)
 		}
 	}
+	log.Printf("Broadcasting message to %d clients", len(h.clients))
 
 	for client := range h.clients {
 		select {
@@ -220,11 +262,46 @@ func (h *Hub) broadcastMessage(message []byte) {
 }
 
 func (h *Hub) handleDrawingOperation(msg Message) {
-	if opData, ok := msg.Data.(map[string]interface{}); ok {
-		op := parseDrawingOperation(opData)
-		op.ProjectID = h.projectID
-		h.operations = append(h.operations, op)
-	}
+
+	switch data := msg.Data.(type) {
+    case map[string]interface{}:
+        h.processSingleCanvas(data)
+    case []interface{}:
+        for _, item := range data {
+            if canvasMap, ok := item.(map[string]interface{}); ok {
+                h.processSingleCanvas(canvasMap)
+            } else {
+                log.Printf("handleDrawingOperation: array item is not map: %T", item)
+            }
+        }
+    default:
+        log.Printf("handleDrawingOperation: unexpected data type: %T", data)
+    }
+}
+
+
+
+func (h *Hub) processSingleCanvas(dataMap map[string]interface{}) {
+    // Marshal entire dataMap back to JSON bytes
+    jsonData, err := json.Marshal(dataMap)
+    if err != nil {
+        log.Printf("Error marshaling dataMap: %v", err)
+        return
+    }
+
+    var canvas services.Canvas
+
+    // Unmarshal JSON bytes into Canvas struct
+    if err := json.Unmarshal(jsonData, &canvas); err != nil {
+        log.Printf("Error unmarshaling to Canvas: %v", err)
+        return
+    }
+
+    // Since Elements is []VectorElement (interface slice), unmarshal won't fill it properly by default.
+    // We need to handle Elements specially:
+    canvas.VectorData.Elements = services.ParseVectorElementsFromRaw(dataMap)
+
+    h.workBoard.AddOrUpdateCanvas(canvas)
 }
 
 func (h *Hub) handleCursorMove(msg Message) {
@@ -253,22 +330,21 @@ func (c *Client) readPump() {
 			break
 		}
 
-		log.Println(string(message[:]))
-
 		c.hub.broadcast <- message
 	}
 }
 
 func (c *Client) writePump() {
-	ticker := time.NewTicker(3 * time.Second)
+	ticker := time.NewTicker(4 * time.Second)
 	defer func() {
+		c.hub.projectHandler.updateProjectCanvasesData(c.hub)
 		ticker.Stop()
 		c.conn.Close()
 	}()
 
 	for {
 		select {
-		case message, ok := <-c.send:
+		case message, ok := <- c.send:
 			_ = c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if !ok {
 				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
@@ -281,43 +357,13 @@ func (c *Client) writePump() {
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
+			c.hub.projectHandler.updateProjectCanvasesData(c.hub)
 		}
-	}
-}
-
-func parseDrawingOperation(data map[string]interface{}) DrawingOperation {
-	points := make([]Point, 0)
-	if pointsData, ok := data["points"].([]interface{}); ok {
-		for _, p := range pointsData {
-			if pointMap, ok := p.(map[string]interface{}); ok {
-				points = append(points, Point{
-					X: getFloat64(pointMap, "x"),
-					Y: getFloat64(pointMap, "y"),
-				})
-			}
-		}
-	}
-
-	return DrawingOperation{
-		Type:      getString(data, "type"),
-		Tool:      getString(data, "tool"),
-		Color:     getString(data, "color"),
-		Points:    points,
-		Timestamp: getInt64(data, "timestamp"),
-		UserID:    getString(data, "userId"),
-		ID:        getString(data, "id"),
 	}
 }
 
 func generateUserID() string {
 	return fmt.Sprintf("user_%d", time.Now().UnixNano())
-}
-
-func getString(m map[string]interface{}, key string) string {
-	if val, ok := m[key].(string); ok {
-		return val
-	}
-	return ""
 }
 
 func getFloat64(m map[string]interface{}, key string) float64 {
