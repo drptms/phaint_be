@@ -14,16 +14,6 @@ type User struct {
 	Password string
 }
 
-func NewUser(uid, username, mail, password string) (User, error) {
-	user := User{
-		Uid:      uid,
-		Username: username,
-		Mail:     mail,
-		Password: password,
-	}
-	return user, nil
-}
-
 // NewUserFromRequest Create a new user from an http request
 func NewUserFromRequest(r *http.Request) (User, error) {
 	decoder := json.NewDecoder(r.Body)
