@@ -9,42 +9,42 @@ import (
 
 // Point struct for path points
 type Point struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
+    X float64 `firestore:"x" json:"x"`
+    Y float64 `firestore:"y" json:"y"`
 }
 
 // VectorShape base struct
 type VectorShape struct {
-	ID          string  `json:"id"`
-	Stroke      string  `json:"stroke"`
-	StrokeWidth float64 `json:"strokeWidth"`
-	Fill        string  `json:"fill"`
+    ID         string  `firestore:"id" json:"id"`
+    Stroke     string  `firestore:"stroke" json:"stroke"`
+    StrokeWidth float64 `firestore:"strokeWidth" json:"strokeWidth"`
+    Fill       string  `firestore:"fill" json:"fill"`
 }
 
 // VectorPath struct
 type VectorPath struct {
-	VectorShape
-	Type   string  `json:"type"`
-	Points []Point `json:"points"`
+    VectorShape
+    Type   string  `firestore:"type" json:"type"`
+    Points []Point `firestore:"points" json:"points"`
 }
 
 // VectorRectangle struct
 type VectorRectangle struct {
-	VectorShape
-	Type   string  `json:"type"`
-	X      float64 `json:"x"`
-	Y      float64 `json:"y"`
-	Width  float64 `json:"width"`
-	Height float64 `json:"height"`
+    VectorShape
+    Type   string  `firestore:"type" json:"type"`
+    X      float64 `firestore:"x" json:"x"`
+    Y      float64 `firestore:"y" json:"y"`
+    Width  float64 `firestore:"width" json:"width"`
+    Height float64 `firestore:"height" json:"height"`
 }
 
 // VectorCircle struct
 type VectorCircle struct {
-	VectorShape
-	Type   string  `json:"type"`
-	CX     float64 `json:"cx"`
-	CY     float64 `json:"cy"`
-	Radius float64 `json:"radius"`
+    VectorShape
+    Type   string  `firestore:"type" json:"type"`
+    CX     float64 `firestore:"cx" json:"cx"`
+    CY     float64 `firestore:"cy" json:"cy"`
+    Radius float64 `firestore:"radius" json:"radius"`
 }
 
 // VectorElement interface{} to cover the above types
@@ -52,18 +52,18 @@ type VectorElement interface{}
 
 // VectorData struct
 type VectorData struct {
-	Width          float64         `json:"width"`
-	Height         float64         `json:"height"`
-	BackgroundFill string          `json:"backgroundFill"`
-	Elements       []VectorElement `json:"elements"`
-	Timestamp      string          `json:"timestamp"`
-	Version        string          `json:"version"`
+    Width         float64         `firestore:"width" json:"width"`
+    Height        float64         `firestore:"height" json:"height"`
+    BackgroundFill string          `firestore:"backgroundFill" json:"backgroundFill"`
+    Elements      []VectorElement `firestore:"elements" json:"elements"`
+    Timestamp     string          `firestore:"timestamp" json:"timestamp"`
+    Version       string          `firestore:"version" json:"version"`
 }
 
 // Canvas struct representing one canvas with ID and vector data
 type Canvas struct {
-	ID         string     `json:"id"`
-	VectorData VectorData `json:"vectorData"`
+    ID         string     `firestore:"id" json:"id"`
+    VectorData VectorData `firestore:"vectorData" json:"vectorData"`
 }
 
 // CanvasService manages multiple canvases safely
@@ -155,7 +155,14 @@ func GetCurrentTimestamp() string {
 
 // Special parser for VectorElements with dynamic type handling
 func ParseVectorElementsFromRaw(dataMap map[string]interface{}) []VectorElement {
-    vectorData := getMapStringInterface(dataMap, "vectorData")
+	log.Print(dataMap)
+	vectorData, ok := dataMap["vectorData"].(map[string]interface{})
+    if !ok {
+        return nil
+    }
+
+	log.Print(vectorData)
+
     if vectorData == nil {
         return nil
     }
@@ -164,6 +171,7 @@ func ParseVectorElementsFromRaw(dataMap map[string]interface{}) []VectorElement 
     if !ok {
         return nil
     }
+	log.Print(elementsRaw)
 
     elements := []VectorElement{}
     rawSlice, ok := elementsRaw.([]interface{})
@@ -171,6 +179,7 @@ func ParseVectorElementsFromRaw(dataMap map[string]interface{}) []VectorElement 
         return nil
     }
 
+	log.Print(rawSlice)
     for _, elem := range rawSlice {
         elemMap, ok := elem.(map[string]interface{})
         if !ok {
@@ -207,18 +216,17 @@ func ParseVectorElementsFromRaw(dataMap map[string]interface{}) []VectorElement 
     return elements
 }
 
-func getMapStringInterface(m map[string]interface{}, key string) map[string]interface{} {
-	if v, ok := m[key]; ok {
-		if subMap, ok := v.(map[string]interface{}); ok {
-			return subMap
-		}
-	}
-	return nil
-}
-
 func getString(m map[string]interface{}, key string) string {
 	if val, ok := m[key].(string); ok {
 		return val
 	}
 	return ""
+}
+
+func (v *VectorData) MarshalElements() []interface{} {
+    results := make([]interface{}, len(v.Elements))
+    for i, el := range v.Elements {
+        results[i] = el // assert concrete type or convert
+    }
+    return results
 }

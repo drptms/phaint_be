@@ -79,8 +79,6 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Get or create hub for this project
 	hub := getOrCreateHub(projectID)
 
-	log.Print(hub.workBoard.GetAllCanvases())
-
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("WebSocket upgrade error:", err)
@@ -99,12 +97,12 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go client.writePump()
 	go client.readPump()
 
-	currentWordboard := hub.getCurrentWorkboard()
-	data, err := json.Marshal(currentWordboard)
+	workBoard := hub.getCurrentWorkboard()
+	jsonData, err := json.Marshal(workBoard)
 	if err != nil {
 		log.Println("Error marshaling current workboard:", err)
 	} else {
-		client.send <- data
+		client.send <- jsonData
 	}
 }
 
@@ -135,17 +133,22 @@ func initializeHubCanvasData(hub *Hub) error {
     // into your Canvas structs and add them to the CanvasService inside hub.workBoard
 
     // Example assuming canvasesData is a slice of maps (adjust according to your exact Firestore data shape)
-    if canvasSlice, ok := canvasesData.([]interface{}); ok {
-        for _, c := range canvasSlice {
-            canvasMap, ok := c.(map[string]interface{})
-            if !ok {
-                continue
+
+	switch data := canvasesData.(type) {
+    case map[string]interface{}:
+        hub.processSingleCanvas(data)
+    case []interface{}:
+        for _, item := range data {
+            if canvasMap, ok := item.(map[string]interface{}); ok {
+                hub.processSingleCanvas(canvasMap)
+            } else {
+                log.Printf("handleDrawingOperation: array item is not map: %T", item)
             }
-            // Add canvas to the service
-			log.Print(canvasMap)
-            hub.processSingleCanvas(canvasMap)
         }
+    default:
+        log.Printf("handleDrawingOperation: unexpected data type: %T", data)
     }
+
     return nil
 }
 
@@ -182,10 +185,28 @@ func getOrCreateHub(projectID string) *Hub {
 }
 
 func (h *Hub) getCurrentWorkboard() map[string]interface{} {
-	return map[string]interface{}{
-		"type": "operation",
-		"data": h.workBoard.GetAllCanvases(),
-	}
+    canvases := h.workBoard.GetAllCanvases()
+    transformed := make([]map[string]interface{}, 0, len(canvases))
+	log.Print(transformed)
+    for _, c := range canvases {
+        v := c.VectorData
+        transformed = append(transformed, map[string]interface{}{
+            "id": c.ID,
+            "vectorData": map[string]interface{}{
+                "width":          v.Width,
+                "height":         v.Height,
+                "backgroundFill": v.BackgroundFill,
+                "elements":       v.MarshalElements(),
+                "timestamp":      v.Timestamp,
+                "version":        v.Version,
+            },
+        })
+    }
+
+    return map[string]interface{}{
+        "type": "operation",
+        "data": transformed,
+    }
 }
 
 func (h *Hub) run() {
@@ -299,6 +320,7 @@ func (h *Hub) processSingleCanvas(dataMap map[string]interface{}) {
 
     // Since Elements is []VectorElement (interface slice), unmarshal won't fill it properly by default.
     // We need to handle Elements specially:
+
     canvas.VectorData.Elements = services.ParseVectorElementsFromRaw(dataMap)
 
     h.workBoard.AddOrUpdateCanvas(canvas)
