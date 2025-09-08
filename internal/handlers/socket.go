@@ -187,8 +187,8 @@ func getOrCreateHub(projectID string) *Hub {
 func (h *Hub) getCurrentWorkboard() map[string]interface{} {
     canvases := h.workBoard.GetAllCanvases()
     transformed := make([]map[string]interface{}, 0, len(canvases))
-	log.Print(transformed)
-    for _, c := range canvases {
+
+	for _, c := range canvases {
         v := c.VectorData
         transformed = append(transformed, map[string]interface{}{
             "id": c.ID,
