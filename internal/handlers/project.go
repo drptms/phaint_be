@@ -64,6 +64,7 @@ func (p *ProjectHandler) addProject(w http.ResponseWriter, r *http.Request) {
 		"PID":          project.Pid,
 		"ProjectName":  project.ProjectName,
 		"CreationDate": project.CreationDate,
+		"CanvasesData": []services.Canvas{},
 	})
 	if err != nil {
 		log.Println(err)
@@ -74,20 +75,20 @@ func (p *ProjectHandler) addProject(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(project.Pid)
 }
 
-func (p *ProjectHandler) getProjectByName(name string) (*firestore.DocumentRef, error) {
+func (p *ProjectHandler) getProjectById(id string) (*firestore.DocumentRef, error) {
     ctx := context.Background()
     client := services.FirebaseDb().GetClient()
 
 	// Query to find the document where ProjectName field matches name
-    query := client.Collection("projects").Where("ProjectName", "==", name).Limit(1)
+    query := client.Collection("projects").Where("PID", "==", id).Limit(1)
     docs, err := query.Documents(ctx).GetAll()
     if err != nil {
         log.Println("Error querying document by ProjectName:", err)
         return nil, err
     }
     if len(docs) == 0 {
-        log.Println("No project found with ProjectName:", name)
-        return nil, fmt.Errorf("no project found with ProjectName: %s", name)
+        log.Println("No project found with ProjectName:", id)
+        return nil, fmt.Errorf("no project found with ProjectName: %s", id)
     }
 
     return docs[0].Ref, nil
@@ -96,7 +97,7 @@ func (p *ProjectHandler) getProjectByName(name string) (*firestore.DocumentRef, 
 func (p *ProjectHandler) updateProjectCanvasesData(hub *Hub) error {
 	ctx := context.Background()
 
-    docRef, err := p.getProjectByName(hub.projectID)
+    docRef, err := p.getProjectById(hub.projectID)
     if err != nil {
         return err
     }
