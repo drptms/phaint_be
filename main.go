@@ -18,10 +18,8 @@ func main() {
 	log.Println("Creating the server on port 8080")
 	mux := http.NewServeMux()
 	// adding all the handlers
-	mux.Handle("/users/", &handlers.UserHandler{})
-	mux.Handle("/projects/", &handlers.ProjectHandler{})
-	// WorkBoard handler
-	mux.Handle("/workboard", &handlers.WorkBoardHandler{})
+	mux.Handle("/users", &handlers.UserHandler{})
+	mux.Handle("/projects", &handlers.ProjectHandler{})
 
 	// Add WebSocket handler
 	mux.Handle("/connect", &handlers.WebSocketHandler{})

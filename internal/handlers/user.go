@@ -13,13 +13,14 @@ import (
 	"phaint/internal/utils"
 	"phaint/models"
 
+	"firebase.google.com/go/auth"
 	"google.golang.org/api/iterator"
 )
 
 type UserHandler struct{}
 
 // RegisterUser Create a new user on Firebase Authentication system from an user passed in the http request body
-func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request, userReq models.User) {
 	app := services.FirebaseDb().GetApp()
 
 	bodyBytes, err := io.ReadAll(r.Body)
@@ -27,15 +28,19 @@ func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 	}
 	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-	user, err := models.NewFirebaseAuthUser(r)
-	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-	userReq, err := models.NewUserFromRequest(r)
+	var user *auth.UserToCreate
+	user, err = models.NewFirebaseAuthUser(r)
 
 	ctx := context.Background()
 	client := services.FirebaseDb().GetClient()
 
+	userId := userReq.Uid
+	if len(userId) == 0 {
+		userId = generateUserID()
+	}
+
 	_, _, err = client.Collection("users").Add(ctx, map[string]interface{}{
-		"UID":      userReq.Uid,
+		"UID":      userId,
 		"mail":     userReq.Mail,
 		"username": userReq.Username,
 	})
@@ -51,18 +56,18 @@ func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalf("Error during user craetion : %v\n", err)
 	}
-	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-	h.LoginUser(w, r)
-}
 
-// LoginUser Authenticate a user passed in the http request body
-func (h *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
-	user, err := models.NewUserFromRequest(r)
+	_, err = utils.SignInWithPassword(userReq.Mail, userReq.Password)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	token, err := utils.SignInWithPassword(user.Mail, user.Password)
+	writeResponse(w, map[string]string{"userId": userId, "username": userReq.Username})
+}
+
+// LoginUser Authenticate a user passed in the http request body
+func (h *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request, user models.User) {
+	_, err := utils.SignInWithPassword(user.Mail, user.Password)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -86,20 +91,33 @@ func (h *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	response := map[string]string{"UserToken": token, "username": arr[0]["username"].(string)}
+	writeResponse(w, map[string]string{"userId": arr[0]["UID"].(string), "username": arr[0]["username"].(string)})
+}
 
+func writeResponse(w http.ResponseWriter, toWrite map[string]string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(toWrite)
 }
 
 func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		fmt.Println(err)
+	}
+	var user models.User
+	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	user, err = models.NewUserFromRequest(r)
+	if err != nil {
+		fmt.Println(err)
+	}
+
 	switch {
-	case r.Method == http.MethodPost && r.URL.Path == "/users/register":
-		h.RegisterUser(w, r)
+	case r.Method == http.MethodPost && len(user.Username) > 0:
+		h.RegisterUser(w, r, user)
 		return
-	case r.Method == http.MethodPost && r.URL.Path == "/users/login":
-		h.LoginUser(w, r)
+	case r.Method == http.MethodPost && len(user.Username) == 0:
+		h.LoginUser(w, r, user)
 		return
 	default:
 		http.NotFound(w, r)
