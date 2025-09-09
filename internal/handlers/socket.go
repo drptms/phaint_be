@@ -48,6 +48,7 @@ type UserPresence struct {
 
 type Message struct {
 	Type      string      `json:"type"`
+	Subtype   string      `json:"subtype,omitempty"`
 	Data      interface{} `json:"data"`
 	UserID    string      `json:"userId,omitempty"`
 	ProjectID string      `json:"projectId,omitempty"`
@@ -187,8 +188,8 @@ func getOrCreateHub(projectID string) *Hub {
 func (h *Hub) getCurrentWorkboard() map[string]interface{} {
     canvases := h.workBoard.GetAllCanvases()
     transformed := make([]map[string]interface{}, 0, len(canvases))
-	log.Print(transformed)
-    for _, c := range canvases {
+
+	for _, c := range canvases {
         v := c.VectorData
         transformed = append(transformed, map[string]interface{}{
             "id": c.ID,
@@ -262,7 +263,7 @@ func (h *Hub) broadcastMessage(message []byte) {
 	if err := json.Unmarshal(message, &msg); err == nil {
 		switch msg.Type {
 		case "operation":
-			h.handleDrawingOperation(msg)
+			h.handleOperations(msg)
 		case "cursor_move":
 			h.handleCursorMove(msg)
 		default:
@@ -280,6 +281,60 @@ func (h *Hub) broadcastMessage(message []byte) {
 			delete(h.users, client.userID)
 		}
 	}
+}
+
+func (h *Hub) handleOperations(msg Message) {
+	switch msg.Subtype {
+	case "load":
+		h.handleDrawingOperation(msg)
+	case "shape":
+		h.handleSingleStroke(msg)
+	case "canvas":
+		h.handleCanvasBackground(msg)
+	case "add":
+		h.handleDrawingOperation(msg)
+	case "remove":
+		h.handleRemoveCanvas(msg)
+	default:
+		log.Printf("Unknown operation subtype: %s", msg.Subtype)
+	}
+}
+
+func (h *Hub) handleCanvasBackground(msg Message) {
+	var canvasId string
+	var background string
+	if dataMap, ok := msg.Data.(map[string]interface{}); ok {
+		if id, ok := dataMap["id"].(string); ok {
+			canvasId = id
+		}
+		if backgroundData, ok := dataMap["background"].(string); ok {
+			background = backgroundData
+		}
+	}
+	h.workBoard.UpdateCanvasBackground(canvasId, background)
+}
+
+func (h *Hub) handleRemoveCanvas(msg Message) {
+	var canvasId string
+	if dataMap, ok := msg.Data.(string); ok {
+		canvasId = dataMap
+		h.workBoard.RemoveCanvas(canvasId)
+	}
+}
+
+func (h *Hub) handleSingleStroke(msg Message) {
+	var canvasId string
+	var stroke services.VectorElement
+	if dataMap, ok := msg.Data.(map[string]interface{}); ok {
+		if id, ok := dataMap["id"].(string); ok {
+			canvasId = id
+		}
+		if strokeData, ok := dataMap["stroke"].(map[string]interface{}); ok {
+			stroke = services.ParseSingleStrokeFromRaw(strokeData)
+		}
+	}
+	h.workBoard.UpdateCanvasElement(canvasId, stroke)
+
 }
 
 func (h *Hub) handleDrawingOperation(msg Message) {
