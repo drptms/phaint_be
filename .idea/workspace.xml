@@ -7,7 +7,7 @@
     <list default="true" id="18dc8922-e516-4db6-a87a-100e13c132d0" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/handlers/socket.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handlers/socket.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/services/canvas_service.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/services/canvas_service.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,6 +51,7 @@
     "git-widget-placeholder": "feat/behaviours",
     "go.import.settings.migrated": "true",
     "go.sdk.automatically.set": "true",
+    "ignore.virus.scanning.warn.message": "true",
     "last_opened_file_path": "C:/Users/nickg",
     "node.js.detected.package.eslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",

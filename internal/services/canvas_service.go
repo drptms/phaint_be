@@ -9,42 +9,48 @@ import (
 
 // Point struct for path points
 type Point struct {
-    X float64 `firestore:"x" json:"x"`
-    Y float64 `firestore:"y" json:"y"`
+	X float64 `firestore:"x" json:"x"`
+	Y float64 `firestore:"y" json:"y"`
+}
+
+type Action struct {
+	Type string `firestore:"type" json:"type"`
+	Link string `firestore:"link" json:"link"`
 }
 
 // VectorShape base struct
 type VectorShape struct {
-    ID         string  `firestore:"id" json:"id"`
-    Stroke     string  `firestore:"stroke" json:"stroke"`
-    StrokeWidth float64 `firestore:"strokeWidth" json:"strokeWidth"`
-    Fill       string  `firestore:"fill" json:"fill"`
+	ID          string  `firestore:"id" json:"id"`
+	Stroke      string  `firestore:"stroke" json:"stroke"`
+	StrokeWidth float64 `firestore:"strokeWidth" json:"strokeWidth"`
+	Fill        string  `firestore:"fill" json:"fill"`
+	Action      Action  `firestore:"action" json:"action"`
 }
 
 // VectorPath struct
 type VectorPath struct {
-    VectorShape
-    Type   string  `firestore:"type" json:"type"`
-    Points []Point `firestore:"points" json:"points"`
+	VectorShape
+	Type   string  `firestore:"type" json:"type"`
+	Points []Point `firestore:"points" json:"points"`
 }
 
 // VectorRectangle struct
 type VectorRectangle struct {
-    VectorShape
-    Type   string  `firestore:"type" json:"type"`
-    X      float64 `firestore:"x" json:"x"`
-    Y      float64 `firestore:"y" json:"y"`
-    Width  float64 `firestore:"width" json:"width"`
-    Height float64 `firestore:"height" json:"height"`
+	VectorShape
+	Type   string  `firestore:"type" json:"type"`
+	X      float64 `firestore:"x" json:"x"`
+	Y      float64 `firestore:"y" json:"y"`
+	Width  float64 `firestore:"width" json:"width"`
+	Height float64 `firestore:"height" json:"height"`
 }
 
 // VectorCircle struct
 type VectorCircle struct {
-    VectorShape
-    Type   string  `firestore:"type" json:"type"`
-    CX     float64 `firestore:"cx" json:"cx"`
-    CY     float64 `firestore:"cy" json:"cy"`
-    Radius float64 `firestore:"radius" json:"radius"`
+	VectorShape
+	Type   string  `firestore:"type" json:"type"`
+	CX     float64 `firestore:"cx" json:"cx"`
+	CY     float64 `firestore:"cy" json:"cy"`
+	Radius float64 `firestore:"radius" json:"radius"`
 }
 
 // VectorElement interface{} to cover the above types
@@ -52,18 +58,18 @@ type VectorElement interface{}
 
 // VectorData struct
 type VectorData struct {
-    Width         float64         `firestore:"width" json:"width"`
-    Height        float64         `firestore:"height" json:"height"`
-    BackgroundFill string          `firestore:"backgroundFill" json:"backgroundFill"`
-    Elements      []VectorElement `firestore:"elements" json:"elements"`
-    Timestamp     string          `firestore:"timestamp" json:"timestamp"`
-    Version       string          `firestore:"version" json:"version"`
+	Width          float64         `firestore:"width" json:"width"`
+	Height         float64         `firestore:"height" json:"height"`
+	BackgroundFill string          `firestore:"backgroundFill" json:"backgroundFill"`
+	Elements       []VectorElement `firestore:"elements" json:"elements"`
+	Timestamp      string          `firestore:"timestamp" json:"timestamp"`
+	Version        string          `firestore:"version" json:"version"`
 }
 
 // Canvas struct representing one canvas with ID and vector data
 type Canvas struct {
-    ID         string     `firestore:"id" json:"id"`
-    VectorData VectorData `firestore:"vectorData" json:"vectorData"`
+	ID         string     `firestore:"id" json:"id"`
+	VectorData VectorData `firestore:"vectorData" json:"vectorData"`
 }
 
 // CanvasService manages multiple canvases safely
@@ -152,68 +158,65 @@ func GetCurrentTimestamp() string {
 	return time.Now().Format(time.RFC3339)
 }
 
-
 // Special parser for VectorElements with dynamic type handling
 func ParseVectorElementsFromRaw(dataMap map[string]interface{}) []VectorElement {
-	log.Print(dataMap)
+	//log.Print(dataMap)
 	vectorData, ok := dataMap["vectorData"].(map[string]interface{})
-    if !ok {
-        return nil
-    }
+	if !ok {
+		return nil
+	}
 
-	log.Print(vectorData)
+	if vectorData == nil {
+		return nil
+	}
 
-    if vectorData == nil {
-        return nil
-    }
+	elementsRaw, ok := vectorData["elements"]
+	if !ok {
+		return nil
+	}
+	//log.Print(elementsRaw)
 
-    elementsRaw, ok := vectorData["elements"]
-    if !ok {
-        return nil
-    }
-	log.Print(elementsRaw)
+	elements := []VectorElement{}
+	rawSlice, ok := elementsRaw.([]interface{})
+	if !ok {
+		return nil
+	}
 
-    elements := []VectorElement{}
-    rawSlice, ok := elementsRaw.([]interface{})
-    if !ok {
-        return nil
-    }
+	//log.Print(rawSlice)
+	for _, elem := range rawSlice {
+		elemMap, ok := elem.(map[string]interface{})
+		if !ok {
+			continue
+		}
 
-	log.Print(rawSlice)
-    for _, elem := range rawSlice {
-        elemMap, ok := elem.(map[string]interface{})
-        if !ok {
-            continue
-        }
+		t := getString(elemMap, "type")
+		jsonData, err := json.Marshal(elemMap)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
 
-        t := getString(elemMap, "type")
-        jsonData, err := json.Marshal(elemMap)
-        if err != nil {
-            continue
-        }
-
-        switch t {
-        case "path":
-            var path VectorPath
-            if err := json.Unmarshal(jsonData, &path); err == nil {
-                elements = append(elements, path)
-            }
-        case "rectangle":
-            var rect VectorRectangle
-            if err := json.Unmarshal(jsonData, &rect); err == nil {
-                elements = append(elements, rect)
-            }
-        case "circle":
-            var circle VectorCircle
-            if err := json.Unmarshal(jsonData, &circle); err == nil {
-                elements = append(elements, circle)
-            }
-        default:
+		switch t {
+		case "path":
+			var path VectorPath
+			if err := json.Unmarshal(jsonData, &path); err == nil {
+				elements = append(elements, path)
+			}
+		case "rectangle":
+			var rect VectorRectangle
+			if err := json.Unmarshal(jsonData, &rect); err == nil {
+				elements = append(elements, rect)
+			}
+		case "circle":
+			var circle VectorCircle
+			if err := json.Unmarshal(jsonData, &circle); err == nil {
+				elements = append(elements, circle)
+			}
+		default:
 			log.Printf("Unknown vector element type: %s", t)
-            // Optional: handle unknown types here or skip
-        }
-    }
-    return elements
+		}
+	}
+	return elements
 }
 
 func getString(m map[string]interface{}, key string) string {
@@ -224,9 +227,9 @@ func getString(m map[string]interface{}, key string) string {
 }
 
 func (v *VectorData) MarshalElements() []interface{} {
-    results := make([]interface{}, len(v.Elements))
-    for i, el := range v.Elements {
-        results[i] = el // assert concrete type or convert
-    }
-    return results
+	results := make([]interface{}, len(v.Elements))
+	for i, el := range v.Elements {
+		results[i] = el // assert concrete type or convert
+	}
+	return results
 }
