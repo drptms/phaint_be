@@ -116,17 +116,15 @@ func (c *CanvasService) RemoveCanvas(id string) {
 	delete(c.canvases, id)
 }
 
-// UpdateCanvasElements updates elements and metadata of a canvas
-func (c *CanvasService) UpdateCanvasElements(id string, elements []VectorElement, timestamp string, version string) bool {
+// UpdateCanvasElement updates elements and metadata of a canvas
+func (c *CanvasService) UpdateCanvasElement(id string, element VectorElement) bool {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	canvas, exists := c.canvases[id]
 	if !exists {
 		return false
 	}
-	canvas.VectorData.Elements = elements
-	canvas.VectorData.Timestamp = timestamp
-	canvas.VectorData.Version = version
+	canvas.VectorData.Elements = append(canvas.VectorData.Elements, element)
 	return true
 }
 
@@ -158,36 +156,34 @@ func GetCurrentTimestamp() string {
 	return time.Now().Format(time.RFC3339)
 }
 
+
 // Special parser for VectorElements with dynamic type handling
 func ParseVectorElementsFromRaw(dataMap map[string]interface{}) []VectorElement {
-	//log.Print(dataMap)
 	vectorData, ok := dataMap["vectorData"].(map[string]interface{})
 	if !ok {
 		return nil
 	}
 
-	if vectorData == nil {
-		return nil
-	}
+    if vectorData == nil {
+        return nil
+    }
 
-	elementsRaw, ok := vectorData["elements"]
-	if !ok {
-		return nil
-	}
-	//log.Print(elementsRaw)
+    elementsRaw, ok := vectorData["elements"]
+    if !ok {
+        return nil
+    }
 
-	elements := []VectorElement{}
-	rawSlice, ok := elementsRaw.([]interface{})
-	if !ok {
-		return nil
-	}
+    elements := []VectorElement{}
+    rawSlice, ok := elementsRaw.([]interface{})
+    if !ok {
+        return nil
+    }
 
-	//log.Print(rawSlice)
-	for _, elem := range rawSlice {
-		elemMap, ok := elem.(map[string]interface{})
-		if !ok {
-			continue
-		}
+    for _, elem := range rawSlice {
+        elemMap, ok := elem.(map[string]interface{})
+        if !ok {
+            continue
+        }
 
 		t := getString(elemMap, "type")
 		jsonData, err := json.Marshal(elemMap)
@@ -217,6 +213,35 @@ func ParseVectorElementsFromRaw(dataMap map[string]interface{}) []VectorElement 
 		}
 	}
 	return elements
+}
+
+func ParseSingleStrokeFromRaw(dataMap map[string]interface{}) VectorElement {
+    t := getString(dataMap, "type")
+    jsonData, err := json.Marshal(dataMap)
+    if err != nil {
+        return nil
+    }
+    switch t {
+    case "path":
+        var path VectorPath
+        if err := json.Unmarshal(jsonData, &path); err == nil {
+            return path
+        }
+    case "rectangle":
+        var rect VectorRectangle
+        if err := json.Unmarshal(jsonData, &rect); err == nil {
+            return rect
+        }
+    case "circle":
+        var circle VectorCircle
+        if err := json.Unmarshal(jsonData, &circle); err == nil {
+            return circle
+        }
+    default:
+        log.Printf("Unknown vector element type: %s", t)
+        // Optional: handle unknown types here or skip
+    }
+    return nil
 }
 
 func getString(m map[string]interface{}, key string) string {
