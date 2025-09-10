@@ -111,7 +111,7 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func initializeHubCanvasData(hub *Hub) error {
-	docRef, err := hub.projectHandler.getProjectById(hub.projectID)
+	docRef, err := GetProjectById(hub.projectID)
 	if err != nil {
 		return err
 	}
