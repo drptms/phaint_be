@@ -38,12 +38,17 @@ type Point struct {
 	Y float64 `json:"y"`
 }
 
+type CanvasEvent struct {
+    CanvasId string `json:"canvasId"`
+    Position Point  `json:"position"`
+}
+
 type UserPresence struct {
-	UserID    string    `json:"userId"`
-	Cursor    *Point    `json:"cursor"`
-	Color     string    `json:"color"`
-	IsDrawing bool      `json:"isDrawing"`
-	LastSeen  time.Time `json:"lastSeen"`
+	UserID    string      `json:"userId"`
+	Cursor    *Point      `json:"cursor"`
+	Color     string      `json:"color"`
+	IsDrawing bool        `json:"isDrawing"`
+	LastSeen  CanvasEvent `json:"lastSeen"`
 }
 
 type Message struct {
@@ -74,8 +79,6 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Project ID required", http.StatusBadRequest)
 		return
 	}
-
-	userID = generateUserID()
 
 	// Get or create hub for this project
 	hub := getOrCreateHub(projectID)
@@ -231,8 +234,8 @@ func (h *Hub) registerClient(client *Client) {
 	h.users[client.userID] = &UserPresence{
 		UserID:   client.userID,
 		Color:    fmt.Sprintf("#%06x", time.Now().UnixNano()%0xFFFFFF),
-		LastSeen: time.Now(),
-	}	
+		LastSeen: CanvasEvent{},
+	}
 	log.Printf("Client %s connected to project %s. Total clients: %d", client.userID, h.projectID, len(h.clients))
 	// Send current users state
 	usersData, _ := json.Marshal(Message{Type: "users_state", Data: h.users})
@@ -265,7 +268,7 @@ func (h *Hub) broadcastMessage(message []byte) {
 		case "operation":
 			h.handleOperations(msg)
 		case "cursor_move":
-			h.handleCursorMove(msg)
+			break;
 		default:
 			log.Printf("Unknown message type: %s", msg.Type)
 		}
@@ -379,20 +382,6 @@ func (h *Hub) processSingleCanvas(dataMap map[string]interface{}) {
     canvas.VectorData.Elements = services.ParseVectorElementsFromRaw(dataMap)
 
     h.workBoard.AddOrUpdateCanvas(canvas)
-}
-
-func (h *Hub) handleCursorMove(msg Message) {
-	if cursorData, ok := msg.Data.(map[string]interface{}); ok {
-		if user, exists := h.users[msg.UserID]; exists {
-			if position, ok := cursorData["position"].(map[string]interface{}); ok {
-				user.Cursor = &Point{
-					X: getFloat64(position, "x"),
-					Y: getFloat64(position, "y"),
-				}
-				user.LastSeen = time.Now()
-			}
-		}
-	}
 }
 
 func (c *Client) readPump() {
