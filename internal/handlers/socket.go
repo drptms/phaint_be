@@ -9,21 +9,22 @@ import (
 	"phaint/internal/services"
 	"sync"
 	"time"
+
 	"github.com/gorilla/websocket"
 )
 
 type WebSocketHandler struct{}
 
 type Hub struct {
-	clients    		map[*Client]bool
-	broadcast  		chan []byte
-	register   		chan *Client
-	unregister 		chan *Client
-	users      		map[string]*UserPresence
-	mutex      		sync.RWMutex
-	projectID  		string
-	workBoard  		*services.CanvasService
-	projectHandler 	*ProjectHandler
+	clients        map[*Client]bool
+	broadcast      chan []byte
+	register       chan *Client
+	unregister     chan *Client
+	users          map[string]*UserPresence
+	mutex          sync.RWMutex
+	projectID      string
+	workBoard      *services.CanvasService
+	projectHandler *ProjectHandler
 }
 
 type Client struct {
@@ -74,8 +75,6 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Project ID required", http.StatusBadRequest)
 		return
 	}
-
-	userID = generateUserID()
 
 	// Get or create hub for this project
 	hub := getOrCreateHub(projectID)
@@ -131,53 +130,53 @@ func initializeHubCanvasData(hub *Hub) error {
 	}
 
 	// Parse canvasesData (likely a slice of map[string]interface{} or map[string]interface{})
-    // into your Canvas structs and add them to the CanvasService inside hub.workBoard
+	// into your Canvas structs and add them to the CanvasService inside hub.workBoard
 
-    // Example assuming canvasesData is a slice of maps (adjust according to your exact Firestore data shape)
+	// Example assuming canvasesData is a slice of maps (adjust according to your exact Firestore data shape)
 
 	switch data := canvasesData.(type) {
-    case map[string]interface{}:
-        hub.processSingleCanvas(data)
-    case []interface{}:
-        for _, item := range data {
-            if canvasMap, ok := item.(map[string]interface{}); ok {
-                hub.processSingleCanvas(canvasMap)
-            } else {
-                log.Printf("handleDrawingOperation: array item is not map: %T", item)
-            }
-        }
-    default:
-        log.Printf("handleDrawingOperation: unexpected data type: %T", data)
-    }
+	case map[string]interface{}:
+		hub.processSingleCanvas(data)
+	case []interface{}:
+		for _, item := range data {
+			if canvasMap, ok := item.(map[string]interface{}); ok {
+				hub.processSingleCanvas(canvasMap)
+			} else {
+				log.Printf("handleDrawingOperation: array item is not map: %T", item)
+			}
+		}
+	default:
+		log.Printf("handleDrawingOperation: unexpected data type: %T", data)
+	}
 
-    return nil
+	return nil
 }
 
 func getOrCreateHub(projectID string) *Hub {
 	hubsMutex.Lock()
 	defer hubsMutex.Unlock()
 
-	if hub, exists := projectHubs[projectID]; exists {	
+	if hub, exists := projectHubs[projectID]; exists {
 		return hub
 	}
 
 	hub := &Hub{
-		broadcast:  make(chan []byte, 256),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
-		users:      make(map[string]*UserPresence),
-		projectID:  projectID,
-		workBoard:  services.NewCanvasService(),
+		broadcast:      make(chan []byte, 256),
+		register:       make(chan *Client),
+		unregister:     make(chan *Client),
+		clients:        make(map[*Client]bool),
+		users:          make(map[string]*UserPresence),
+		projectID:      projectID,
+		workBoard:      services.NewCanvasService(),
 		projectHandler: &ProjectHandler{},
 	}
 
 	// Load canvas data from Firestore and initialize CanvasService
-    err := initializeHubCanvasData(hub)
-    if err != nil {
-        log.Printf("Error loading canvas data for project %s: %v", projectID, err)
-        // Optionally continue with empty canvas or handle error accordingly
-    }
+	err := initializeHubCanvasData(hub)
+	if err != nil {
+		log.Printf("Error loading canvas data for project %s: %v", projectID, err)
+		// Optionally continue with empty canvas or handle error accordingly
+	}
 
 	projectHubs[projectID] = hub
 	go hub.run()
@@ -186,28 +185,28 @@ func getOrCreateHub(projectID string) *Hub {
 }
 
 func (h *Hub) getCurrentWorkboard() map[string]interface{} {
-    canvases := h.workBoard.GetAllCanvases()
-    transformed := make([]map[string]interface{}, 0, len(canvases))
+	canvases := h.workBoard.GetAllCanvases()
+	transformed := make([]map[string]interface{}, 0, len(canvases))
 
 	for _, c := range canvases {
-        v := c.VectorData
-        transformed = append(transformed, map[string]interface{}{
-            "id": c.ID,
-            "vectorData": map[string]interface{}{
-                "width":          v.Width,
-                "height":         v.Height,
-                "backgroundFill": v.BackgroundFill,
-                "elements":       v.MarshalElements(),
-                "timestamp":      v.Timestamp,
-                "version":        v.Version,
-            },
-        })
-    }
+		v := c.VectorData
+		transformed = append(transformed, map[string]interface{}{
+			"id": c.ID,
+			"vectorData": map[string]interface{}{
+				"width":          v.Width,
+				"height":         v.Height,
+				"backgroundFill": v.BackgroundFill,
+				"elements":       v.MarshalElements(),
+				"timestamp":      v.Timestamp,
+				"version":        v.Version,
+			},
+		})
+	}
 
-    return map[string]interface{}{
-        "type": "operation",
-        "data": transformed,
-    }
+	return map[string]interface{}{
+		"type": "operation",
+		"data": transformed,
+	}
 }
 
 func (h *Hub) run() {
@@ -232,7 +231,7 @@ func (h *Hub) registerClient(client *Client) {
 		UserID:   client.userID,
 		Color:    fmt.Sprintf("#%06x", time.Now().UnixNano()%0xFFFFFF),
 		LastSeen: time.Now(),
-	}	
+	}
 	log.Printf("Client %s connected to project %s. Total clients: %d", client.userID, h.projectID, len(h.clients))
 	// Send current users state
 	usersData, _ := json.Marshal(Message{Type: "users_state", Data: h.users})
@@ -270,7 +269,6 @@ func (h *Hub) broadcastMessage(message []byte) {
 			log.Printf("Unknown message type: %s", msg.Type)
 		}
 	}
-	log.Printf("Broadcasting message to %d clients", len(h.clients))
 
 	for client := range h.clients {
 		select {
@@ -295,6 +293,8 @@ func (h *Hub) handleOperations(msg Message) {
 		h.handleDrawingOperation(msg)
 	case "remove":
 		h.handleRemoveCanvas(msg)
+	case "action":
+		h.handleAddAction(msg)
 	default:
 		log.Printf("Unknown operation subtype: %s", msg.Subtype)
 	}
@@ -338,47 +338,44 @@ func (h *Hub) handleSingleStroke(msg Message) {
 }
 
 func (h *Hub) handleDrawingOperation(msg Message) {
-
 	switch data := msg.Data.(type) {
-    case map[string]interface{}:
-        h.processSingleCanvas(data)
-    case []interface{}:
-        for _, item := range data {
-            if canvasMap, ok := item.(map[string]interface{}); ok {
-                h.processSingleCanvas(canvasMap)
-            } else {
-                log.Printf("handleDrawingOperation: array item is not map: %T", item)
-            }
-        }
-    default:
-        log.Printf("handleDrawingOperation: unexpected data type: %T", data)
-    }
+	case map[string]interface{}:
+		h.processSingleCanvas(data)
+	case []interface{}:
+		for _, item := range data {
+			if canvasMap, ok := item.(map[string]interface{}); ok {
+				h.processSingleCanvas(canvasMap)
+			} else {
+				log.Printf("handleDrawingOperation: array item is not map: %T", item)
+			}
+		}
+	default:
+		log.Printf("handleDrawingOperation: unexpected data type: %T", data)
+	}
 }
 
-
-
 func (h *Hub) processSingleCanvas(dataMap map[string]interface{}) {
-    // Marshal entire dataMap back to JSON bytes
-    jsonData, err := json.Marshal(dataMap)
-    if err != nil {
-        log.Printf("Error marshaling dataMap: %v", err)
-        return
-    }
+	// Marshal entire dataMap back to JSON bytes
+	jsonData, err := json.Marshal(dataMap)
+	if err != nil {
+		log.Printf("Error marshaling dataMap: %v", err)
+		return
+	}
 
-    var canvas services.Canvas
+	var canvas services.Canvas
 
-    // Unmarshal JSON bytes into Canvas struct
-    if err := json.Unmarshal(jsonData, &canvas); err != nil {
-        log.Printf("Error unmarshaling to Canvas: %v", err)
-        return
-    }
+	// Unmarshal JSON bytes into Canvas struct
+	if err := json.Unmarshal(jsonData, &canvas); err != nil {
+		log.Printf("Error unmarshaling to Canvas: %v", err)
+		return
+	}
 
-    // Since Elements is []VectorElement (interface slice), unmarshal won't fill it properly by default.
-    // We need to handle Elements specially:
+	// Since Elements is []VectorElement (interface slice), unmarshal won't fill it properly by default.
+	// We need to handle Elements specially:
 
-    canvas.VectorData.Elements = services.ParseVectorElementsFromRaw(dataMap)
+	canvas.VectorData.Elements = services.ParseVectorElementsFromRaw(dataMap)
 
-    h.workBoard.AddOrUpdateCanvas(canvas)
+	h.workBoard.AddOrUpdateCanvas(canvas)
 }
 
 func (h *Hub) handleCursorMove(msg Message) {
@@ -392,6 +389,27 @@ func (h *Hub) handleCursorMove(msg Message) {
 				user.LastSeen = time.Now()
 			}
 		}
+	}
+}
+
+func (h *Hub) handleAddAction(msg Message) {
+	if actionData, ok := msg.Data.(map[string]interface{}); ok {
+		var canvasId string
+		var vectorElementId string
+		var action services.Action
+		if id, ok := actionData["canvasId"].(string); ok {
+			canvasId = id
+		}
+		if id, ok := actionData["vectorElementId"].(string); ok {
+			vectorElementId = id
+		}
+		if act, ok := actionData["action"].(map[string]interface{}); ok {
+			action = services.Action{
+				Type: act["type"].(string),
+				Link: act["link"].(string),
+			}
+		}
+		h.workBoard.UpdateCanvasWithAction(canvasId, vectorElementId, action)
 	}
 }
 
@@ -421,7 +439,7 @@ func (c *Client) writePump() {
 
 	for {
 		select {
-		case message, ok := <- c.send:
+		case message, ok := <-c.send:
 			_ = c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if !ok {
 				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
