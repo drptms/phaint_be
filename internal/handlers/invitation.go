@@ -24,6 +24,7 @@ func (i *InvitationHandler) getInvitations(invitation InvitationAcceptBody) (str
 	ctx := context.Background()
 
 	query := client.Collection("invitations").Where("Link", "==", invitation.InviteLink).Limit(1)
+	
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
 		log.Println("Error querying document by ProjectName:", err)
@@ -100,6 +101,27 @@ func (i *InvitationHandler) acceptInvitation(w http.ResponseWriter, r *http.Requ
 	docRef, err := GetProjectById(projectID)
 	if err != nil {
 		log.Println(err)
+		return
+	}
+
+	docSnap, err := docRef.Get(ctx)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	var projectData struct {
+		UID string `firestore:"UID"`
+	}
+
+	err = docSnap.DataTo(&projectData)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	if projectData.UID == invitation.UID {
+		log.Println("Invitation UID equals project UID, cannot add as collaborator.")
 		return
 	}
 
