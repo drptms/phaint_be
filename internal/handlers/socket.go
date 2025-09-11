@@ -40,8 +40,8 @@ type Point struct {
 }
 
 type CanvasEvent struct {
-    CanvasId string `json:"canvasId"`
-    Position Point  `json:"position"`
+	CanvasId string `json:"canvasId"`
+	Position Point  `json:"position"`
 }
 
 type UserPresence struct {
@@ -269,7 +269,7 @@ func (h *Hub) broadcastMessage(message []byte) {
 		case "operation":
 			h.handleOperations(msg)
 		case "cursor_move":
-			break;
+			break
 		default:
 			log.Printf("Unknown message type: %s", msg.Type)
 		}
@@ -381,20 +381,6 @@ func (h *Hub) processSingleCanvas(dataMap map[string]interface{}) {
 	canvas.VectorData.Elements = services.ParseVectorElementsFromRaw(dataMap)
 
 	h.workBoard.AddOrUpdateCanvas(canvas)
-}
-
-func (h *Hub) handleCursorMove(msg Message) {
-	if cursorData, ok := msg.Data.(map[string]interface{}); ok {
-		if user, exists := h.users[msg.UserID]; exists {
-			if position, ok := cursorData["position"].(map[string]interface{}); ok {
-				user.Cursor = &Point{
-					X: getFloat64(position, "x"),
-					Y: getFloat64(position, "y"),
-				}
-				user.LastSeen = time.Now()
-			}
-		}
-	}
 }
 
 func (h *Hub) handleAddAction(msg Message) {
