@@ -32,6 +32,7 @@ type Client struct {
 	conn   *websocket.Conn
 	send   chan []byte
 	userID string
+	username string
 }
 
 type Point struct {
@@ -48,6 +49,7 @@ type UserPresence struct {
 	UserID    string      `json:"userId"`
 	Cursor    *Point      `json:"cursor"`
 	Color     string      `json:"color"`
+	Username  string      `json:"username"`
 	IsDrawing bool        `json:"isDrawing"`
 	LastSeen  CanvasEvent `json:"lastSeen"`
 }
@@ -75,6 +77,7 @@ var hubsMutex = sync.RWMutex{}
 func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	projectID := r.URL.Query().Get("projectId")
 	userID := r.URL.Query().Get("userId")
+	username := r.URL.Query().Get("username")
 
 	if projectID == "" {
 		http.Error(w, "Project ID required", http.StatusBadRequest)
@@ -95,12 +98,14 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		conn:   conn,
 		send:   make(chan []byte, 256),
 		userID: userID,
+		username: username,
 	}
 
 	client.hub.register <- client
-
+	
 	go client.writePump()
 	go client.readPump()
+
 
 	workBoard := hub.getCurrentWorkboard()
 	jsonData, err := json.Marshal(workBoard)
@@ -235,17 +240,14 @@ func (h *Hub) registerClient(client *Client) {
 	h.users[client.userID] = &UserPresence{
 		UserID:   client.userID,
 		Color:    fmt.Sprintf("#%06x", time.Now().UnixNano()%0xFFFFFF),
+		Username: client.username,
 		LastSeen: CanvasEvent{},
 	}
 	log.Printf("Client %s connected to project %s. Total clients: %d", client.userID, h.projectID, len(h.clients))
 	// Send current users state
 	usersData, _ := json.Marshal(Message{Type: "users_state", Data: h.users})
-	select {
-	case client.send <- usersData:
-	default:
-		close(client.send)
-		delete(h.clients, client)
-	}
+
+	h.broadcast <- usersData
 }
 
 func (h *Hub) unregisterClient(client *Client) {
@@ -257,6 +259,8 @@ func (h *Hub) unregisterClient(client *Client) {
 		delete(h.users, client.userID)
 		close(client.send)
 		log.Printf("Client %s disconnected from project %s", client.userID, h.projectID)
+		usersData, _ := json.Marshal(Message{Type: "users_state", Data: h.users})
+		h.broadcast <- usersData
 	}
 }
 
@@ -268,6 +272,7 @@ func (h *Hub) broadcastMessage(message []byte) {
 		switch msg.Type {
 		case "operation":
 			h.handleOperations(msg)
+		case "users_state":
 		case "cursor_move":
 			break
 		default:
