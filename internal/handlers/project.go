@@ -60,12 +60,12 @@ func (p *ProjectHandler) addProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, _, err = client.Collection("projects").Add(ctx, map[string]interface{}{
-		"UID":          project.Uid,
-		"PID":          project.Pid,
-		"ProjectName":  project.ProjectName,
-		"CreationDate": project.CreationDate,
+		"UID":           project.Uid,
+		"PID":           project.Pid,
+		"ProjectName":   project.ProjectName,
+		"CreationDate":  project.CreationDate,
 		"Collaborators": []string{},
-		"CanvasesData": []services.Canvas{},
+		"CanvasesData":  []services.Canvas{},
 	})
 	if err != nil {
 		log.Println(err)
@@ -77,49 +77,47 @@ func (p *ProjectHandler) addProject(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetProjectById(id string) (*firestore.DocumentRef, error) {
-    ctx := context.Background()
-    client := services.FirebaseDb().GetClient()
+	ctx := context.Background()
+	client := services.FirebaseDb().GetClient()
 
 	// Query to find the document where ProjectName field matches name
-    query := client.Collection("projects").Where("PID", "==", id).Limit(1)
-    docs, err := query.Documents(ctx).GetAll()
-    if err != nil {
-        log.Println("Error querying document by ProjectName:", err)
-        return nil, err
-    }
-    if len(docs) == 0 {
-        log.Println("No project found with ProjectName:", id)
-        return nil, fmt.Errorf("no project found with ProjectName: %s", id)
-    }
+	query := client.Collection("projects").Where("PID", "==", id).Limit(1)
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		log.Println("Error querying document by ProjectName:", err)
+		return nil, err
+	}
+	if len(docs) == 0 {
+		log.Println("No project found with ProjectName:", id)
+		return nil, fmt.Errorf("no project found with ProjectName: %s", id)
+	}
 
-    return docs[0].Ref, nil
+	return docs[0].Ref, nil
 }
 
 func (p *ProjectHandler) updateProjectCanvasesData(hub *Hub) error {
 	ctx := context.Background()
 
-    docRef, err := GetProjectById(hub.projectID)
-    if err != nil {
-        return err
-    }
+	docRef, err := GetProjectById(hub.projectID)
+	if err != nil {
+		return err
+	}
 
-    // Get all canvases from the CanvasService
-    canvases := hub.workBoard.GetAllCanvases()
+	canvases := hub.workBoard.GetAllCanvases()
 
-    // Update "CanvasesData" field with current canvases
-    _, err = docRef.Update(ctx, []firestore.Update{
-        {
-            Path:  "CanvasesData",
-            Value: canvases,
-        },
-    })
+	_, err = docRef.Update(ctx, []firestore.Update{
+		{
+			Path:  "CanvasesData",
+			Value: canvases,
+		},
+	})
 
-    if err != nil {
-        log.Println("Failed to update CanvasesData:", err)
-        return err
-    }
+	if err != nil {
+		log.Println("Failed to update CanvasesData:", err)
+		return err
+	}
 
-    return nil
+	return nil
 }
 
 func (p *ProjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

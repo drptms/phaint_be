@@ -68,7 +68,6 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// Global hubs for different projects
 var projectHubs = make(map[string]*Hub)
 var hubsMutex = sync.RWMutex{}
 
@@ -81,7 +80,6 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get or create hub for this project
 	hub := getOrCreateHub(projectID)
 
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -123,7 +121,6 @@ func initializeHubCanvasData(hub *Hub) error {
 		return err
 	}
 
-	// Assuming your Firestore doc has a field "CanvasesData" which is a slice or map of canvases
 	var rawData map[string]interface{}
 	if err := docSnap.DataTo(&rawData); err != nil {
 		return err
@@ -133,11 +130,6 @@ func initializeHubCanvasData(hub *Hub) error {
 	if !ok {
 		return fmt.Errorf("CanvasesData field not found")
 	}
-
-	// Parse canvasesData (likely a slice of map[string]interface{} or map[string]interface{})
-	// into your Canvas structs and add them to the CanvasService inside hub.workBoard
-
-	// Example assuming canvasesData is a slice of maps (adjust according to your exact Firestore data shape)
 
 	switch data := canvasesData.(type) {
 	case map[string]interface{}:
@@ -176,7 +168,6 @@ func getOrCreateHub(projectID string) *Hub {
 		projectHandler: &ProjectHandler{},
 	}
 
-	// Load canvas data from Firestore and initialize CanvasService
 	err := initializeHubCanvasData(hub)
 	if err != nil {
 		log.Printf("Error loading canvas data for project %s: %v", projectID, err)
@@ -407,7 +398,10 @@ func (h *Hub) handleAddAction(msg Message) {
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
-		c.conn.Close()
+		err := c.conn.Close()
+		if err != nil {
+			return
+		}
 	}()
 
 	for {
@@ -423,9 +417,15 @@ func (c *Client) readPump() {
 func (c *Client) writePump() {
 	ticker := time.NewTicker(4 * time.Second)
 	defer func() {
-		c.hub.projectHandler.updateProjectCanvasesData(c.hub)
+		err := c.hub.projectHandler.updateProjectCanvasesData(c.hub)
+		if err != nil {
+			return
+		}
 		ticker.Stop()
-		c.conn.Close()
+		err = c.conn.Close()
+		if err != nil {
+			return
+		}
 	}()
 
 	for {
@@ -443,25 +443,14 @@ func (c *Client) writePump() {
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
-			c.hub.projectHandler.updateProjectCanvasesData(c.hub)
+			err := c.hub.projectHandler.updateProjectCanvasesData(c.hub)
+			if err != nil {
+				return
+			}
 		}
 	}
 }
 
 func generateUserID() string {
 	return fmt.Sprintf("user_%d", time.Now().UnixNano())
-}
-
-func getFloat64(m map[string]interface{}, key string) float64 {
-	if val, ok := m[key].(float64); ok {
-		return val
-	}
-	return 0
-}
-
-func getInt64(m map[string]interface{}, key string) int64 {
-	if val, ok := m[key].(float64); ok {
-		return int64(val)
-	}
-	return 0
 }

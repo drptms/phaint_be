@@ -19,21 +19,21 @@ var fireDb FireDB
 
 // Connect Connection method to the Firebase App
 func (db *FireDB) Connect() error {
-	context := context.Background()
+	ctx := context.Background()
 	options := option.WithCredentialsFile(config.FirebaseCredentialsPath())
-	config := &firebase.Config{
+	cfg := &firebase.Config{
 		ProjectID:   "phaint-ae2f2",
 		DatabaseURL: config.FirebaseDBUrl(),
 	}
 
-	app, err := firebase.NewApp(context, config, options)
+	app, err := firebase.NewApp(ctx, cfg, options)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 	db.app = app
 
-	client, err := app.Firestore(context)
+	client, err := app.Firestore(ctx)
 	if err != nil {
 		fmt.Println(err)
 		return err

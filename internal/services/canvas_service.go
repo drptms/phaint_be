@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
-	"time"
 )
 
 // Point struct for path points
@@ -88,7 +87,6 @@ func (c *CanvasService) GetAllCanvases() []*Canvas {
 	return canvases
 }
 
-// Constructor
 func NewCanvasService() *CanvasService {
 	return &CanvasService{
 		canvases: make(map[string]*Canvas),
@@ -189,12 +187,7 @@ func (c *CanvasService) UpdateCanvasWithAction(canvasId string, vectorElementId 
 	return true
 }
 
-// Helper for current timestamp string
-func GetCurrentTimestamp() string {
-	return time.Now().Format(time.RFC3339)
-}
-
-// Special parser for VectorElements with dynamic type handling
+// ParseVectorElementsFromRaw Special parser for VectorElements with dynamic type handling
 func ParseVectorElementsFromRaw(dataMap map[string]interface{}) []VectorElement {
 	vectorData, ok := dataMap["vectorData"].(map[string]interface{})
 	if !ok {
@@ -210,7 +203,7 @@ func ParseVectorElementsFromRaw(dataMap map[string]interface{}) []VectorElement 
 		return nil
 	}
 
-	elements := []VectorElement{}
+	var elements []VectorElement
 	rawSlice, ok := elementsRaw.([]interface{})
 	if !ok {
 		return nil
@@ -276,7 +269,6 @@ func ParseSingleStrokeFromRaw(dataMap map[string]interface{}) VectorElement {
 		}
 	default:
 		log.Printf("Unknown vector element type: %s", t)
-		// Optional: handle unknown types here or skip
 	}
 	return nil
 }
@@ -291,7 +283,7 @@ func getString(m map[string]interface{}, key string) string {
 func (v *VectorData) MarshalElements() []interface{} {
 	results := make([]interface{}, len(v.Elements))
 	for i, el := range v.Elements {
-		results[i] = el // assert concrete type or convert
+		results[i] = el
 	}
 	return results
 }

@@ -24,7 +24,7 @@ func (i *InvitationHandler) getInvitations(invitation InvitationAcceptBody) (str
 	ctx := context.Background()
 
 	query := client.Collection("invitations").Where("Link", "==", invitation.InviteLink).Limit(1)
-	
+
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
 		log.Println("Error querying document by ProjectName:", err)
@@ -81,7 +81,7 @@ func (i *InvitationHandler) createInvitation(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-func (i *InvitationHandler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
+func (i *InvitationHandler) acceptInvitation(r *http.Request) {
 	ctx := context.Background()
 
 	decoder := json.NewDecoder(r.Body)
@@ -136,7 +136,7 @@ func (i *InvitationHandler) acceptInvitation(w http.ResponseWriter, r *http.Requ
 func (i *InvitationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodPost && r.URL.Path == "/invitations/accept":
-		i.acceptInvitation(w, r)
+		i.acceptInvitation(r)
 	case r.Method == http.MethodPost:
 		i.createInvitation(w, r)
 	}

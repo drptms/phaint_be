@@ -66,7 +66,7 @@ func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request, userR
 }
 
 // LoginUser Authenticate a user passed in the http request body
-func (h *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request, user models.User) {
+func (h *UserHandler) LoginUser(w http.ResponseWriter, user models.User) {
 	_, err := utils.SignInWithPassword(user.Mail, user.Password)
 	if err != nil {
 		fmt.Println(err)
@@ -117,7 +117,7 @@ func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.RegisterUser(w, r, user)
 		return
 	case r.Method == http.MethodPost && len(user.Username) == 0:
-		h.LoginUser(w, r, user)
+		h.LoginUser(w, user)
 		return
 	default:
 		http.NotFound(w, r)

@@ -6,7 +6,13 @@
   <component name="ChangeListManager">
     <list default="true" id="18dc8922-e516-4db6-a87a-100e13c132d0" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/handlers/invitation.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handlers/invitation.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/handlers/project.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handlers/project.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/handlers/socket.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handlers/socket.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/handlers/user.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handlers/user.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/services/canvas_service.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/services/canvas_service.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/services/firebase.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/services/firebase.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/utils/singin.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/utils/singin.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -47,7 +53,7 @@
     "RunOnceActivity.go.formatter.settings.were.checked": "true",
     "RunOnceActivity.go.migrated.go.modules.settings": "true",
     "RunOnceActivity.go.modules.go.list.on.any.changes.was.set": "true",
-    "git-widget-placeholder": "dev",
+    "git-widget-placeholder": "refactor",
     "go.import.settings.migrated": "true",
     "go.sdk.automatically.set": "true",
     "ignore.virus.scanning.warn.message": "true",
