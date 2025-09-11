@@ -20,6 +20,8 @@ func main() {
 	// adding all the handlers
 	mux.Handle("/users", &handlers.UserHandler{})
 	mux.Handle("/projects", &handlers.ProjectHandler{})
+	mux.Handle("/invitations/accept", &handlers.InvitationHandler{})
+	mux.Handle("/invitations", &handlers.InvitationHandler{})
 
 	// Add WebSocket handler
 	mux.Handle("/connect", &handlers.WebSocketHandler{})

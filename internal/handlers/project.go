@@ -64,6 +64,7 @@ func (p *ProjectHandler) addProject(w http.ResponseWriter, r *http.Request) {
 		"PID":          project.Pid,
 		"ProjectName":  project.ProjectName,
 		"CreationDate": project.CreationDate,
+		"Collaborators": []string{},
 		"CanvasesData": []services.Canvas{},
 	})
 	if err != nil {
@@ -75,7 +76,7 @@ func (p *ProjectHandler) addProject(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(project.Pid)
 }
 
-func (p *ProjectHandler) getProjectById(id string) (*firestore.DocumentRef, error) {
+func GetProjectById(id string) (*firestore.DocumentRef, error) {
     ctx := context.Background()
     client := services.FirebaseDb().GetClient()
 
@@ -97,7 +98,7 @@ func (p *ProjectHandler) getProjectById(id string) (*firestore.DocumentRef, erro
 func (p *ProjectHandler) updateProjectCanvasesData(hub *Hub) error {
 	ctx := context.Background()
 
-    docRef, err := p.getProjectById(hub.projectID)
+    docRef, err := GetProjectById(hub.projectID)
     if err != nil {
         return err
     }

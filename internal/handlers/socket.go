@@ -39,12 +39,17 @@ type Point struct {
 	Y float64 `json:"y"`
 }
 
+type CanvasEvent struct {
+    CanvasId string `json:"canvasId"`
+    Position Point  `json:"position"`
+}
+
 type UserPresence struct {
-	UserID    string    `json:"userId"`
-	Cursor    *Point    `json:"cursor"`
-	Color     string    `json:"color"`
-	IsDrawing bool      `json:"isDrawing"`
-	LastSeen  time.Time `json:"lastSeen"`
+	UserID    string      `json:"userId"`
+	Cursor    *Point      `json:"cursor"`
+	Color     string      `json:"color"`
+	IsDrawing bool        `json:"isDrawing"`
+	LastSeen  CanvasEvent `json:"lastSeen"`
 }
 
 type Message struct {
@@ -107,7 +112,7 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func initializeHubCanvasData(hub *Hub) error {
-	docRef, err := hub.projectHandler.getProjectById(hub.projectID)
+	docRef, err := GetProjectById(hub.projectID)
 	if err != nil {
 		return err
 	}
@@ -230,7 +235,7 @@ func (h *Hub) registerClient(client *Client) {
 	h.users[client.userID] = &UserPresence{
 		UserID:   client.userID,
 		Color:    fmt.Sprintf("#%06x", time.Now().UnixNano()%0xFFFFFF),
-		LastSeen: time.Now(),
+		LastSeen: CanvasEvent{},
 	}
 	log.Printf("Client %s connected to project %s. Total clients: %d", client.userID, h.projectID, len(h.clients))
 	// Send current users state
@@ -264,7 +269,7 @@ func (h *Hub) broadcastMessage(message []byte) {
 		case "operation":
 			h.handleOperations(msg)
 		case "cursor_move":
-			h.handleCursorMove(msg)
+			break;
 		default:
 			log.Printf("Unknown message type: %s", msg.Type)
 		}
