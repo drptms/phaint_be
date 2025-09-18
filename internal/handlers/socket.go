@@ -28,10 +28,10 @@ type Hub struct {
 }
 
 type Client struct {
-	hub    *Hub
-	conn   *websocket.Conn
-	send   chan []byte
-	userID string
+	hub      *Hub
+	conn     *websocket.Conn
+	send     chan []byte
+	userID   string
 	username string
 }
 
@@ -94,18 +94,17 @@ func (wh *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := &Client{
-		hub:    hub,
-		conn:   conn,
-		send:   make(chan []byte, 256),
-		userID: userID,
+		hub:      hub,
+		conn:     conn,
+		send:     make(chan []byte, 256),
+		userID:   userID,
 		username: username,
 	}
 
 	client.hub.register <- client
-	
+
 	go client.writePump()
 	go client.readPump()
-
 
 	workBoard := hub.getCurrentWorkboard()
 	jsonData, err := json.Marshal(workBoard)
@@ -138,11 +137,6 @@ func initializeHubCanvasData(hub *Hub) error {
 	if !ok {
 		return fmt.Errorf("CanvasesData field not found")
 	}
-
-	// Parse canvasesData (likely a slice of map[string]interface{} or map[string]interface{})
-	// into your Canvas structs and add them to the CanvasService inside hub.workBoard
-
-	// Example assuming canvasesData is a slice of maps (adjust according to your exact Firestore data shape)
 
 	switch data := canvasesData.(type) {
 	case map[string]interface{}:
@@ -181,7 +175,6 @@ func getOrCreateHub(projectID string) *Hub {
 		projectHandler: &ProjectHandler{},
 	}
 
-	// Load canvas data from Firestore and initialize CanvasService
 	err := initializeHubCanvasData(hub)
 	if err != nil {
 		log.Printf("Error loading canvas data for project %s: %v", projectID, err)
@@ -380,9 +373,6 @@ func (h *Hub) processSingleCanvas(dataMap map[string]interface{}) {
 		return
 	}
 
-	// Since Elements is []VectorElement (interface slice), unmarshal won't fill it properly by default.
-	// We need to handle Elements specially:
-
 	canvas.VectorData.Elements = services.ParseVectorElementsFromRaw(dataMap)
 
 	h.workBoard.AddOrUpdateCanvas(canvas)
@@ -455,18 +445,4 @@ func (c *Client) writePump() {
 
 func generateUserID() string {
 	return fmt.Sprintf("user_%d", time.Now().UnixNano())
-}
-
-func getFloat64(m map[string]interface{}, key string) float64 {
-	if val, ok := m[key].(float64); ok {
-		return val
-	}
-	return 0
-}
-
-func getInt64(m map[string]interface{}, key string) int64 {
-	if val, ok := m[key].(float64); ok {
-		return int64(val)
-	}
-	return 0
 }

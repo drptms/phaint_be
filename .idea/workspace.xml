@@ -5,8 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="18dc8922-e516-4db6-a87a-100e13c132d0" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/models/models_test.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/config.go" beforeDir="false" afterPath="$PROJECT_DIR$/config/config.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/handlers/socket.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/handlers/socket.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/services/firebase.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/services/firebase.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -38,7 +40,9 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "DefaultGoTemplateProperty": "Go File",
+    "Go Test.TestFireDB_Connect in phaint/internal/services.executor": "Run",
     "Go Test.TestNewCanvasService in phaint/internal/services.executor": "Run",
+    "Go Test.go test phaint/internal/services (1).executor": "Run",
     "Go Test.go test phaint/internal/services.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.GoLinterPluginOnboarding": "true",
@@ -49,7 +53,7 @@
     "RunOnceActivity.go.formatter.settings.were.checked": "true",
     "RunOnceActivity.go.migrated.go.modules.settings": "true",
     "RunOnceActivity.go.modules.go.list.on.any.changes.was.set": "true",
-    "git-widget-placeholder": "test",
+    "git-widget-placeholder": "master",
     "go.import.settings.migrated": "true",
     "go.sdk.automatically.set": "true",
     "ignore.virus.scanning.warn.message": "true",
@@ -60,7 +64,19 @@
     "settings.editor.selected.configurable": "preferences.pluginManager"
   }
 }]]></component>
-  <component name="RunManager" selected="Go Test.go test phaint/internal/services">
+  <component name="RunManager" selected="Go Test.go test phaint/internal/services (1)">
+    <configuration name="TestFireDB_Connect in phaint/internal/services" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="phaint_be" />
+      <working_directory value="$PROJECT_DIR$/internal/services" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="phaint/internal/services" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <pattern value="^\QTestFireDB_Connect\E$" />
+      <method v="2" />
+    </configuration>
     <configuration name="TestNewCanvasService in phaint/internal/services" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="phaint_be" />
       <working_directory value="$PROJECT_DIR$/internal/services" />
@@ -71,6 +87,17 @@
       <filePath value="$PROJECT_DIR$" />
       <framework value="gotest" />
       <pattern value="^\QTestNewCanvasService\E$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="go test phaint/internal/services (1)" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="phaint_be" />
+      <working_directory value="$PROJECT_DIR$/internal/services" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="phaint/internal/services" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
       <method v="2" />
     </configuration>
     <configuration name="go test phaint/internal/services" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
@@ -86,6 +113,8 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Go Test.go test phaint/internal/services (1)" />
+        <item itemvalue="Go Test.TestFireDB_Connect in phaint/internal/services" />
         <item itemvalue="Go Test.go test phaint/internal/services" />
         <item itemvalue="Go Test.TestNewCanvasService in phaint/internal/services" />
       </list>
@@ -94,8 +123,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-gosdk-f466f9b0953e-3d2cccfc42a2-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-252.25557.175" />
-        <option value="bundled-js-predefined-d6986cc7102b-b598e85cdad2-JavaScript-GO-252.25557.175" />
+        <option value="bundled-gosdk-f466f9b0953e-3d2cccfc42a2-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-252.25557.189" />
+        <option value="bundled-js-predefined-d6986cc7102b-b598e85cdad2-JavaScript-GO-252.25557.189" />
       </set>
     </attachedChunks>
   </component>
